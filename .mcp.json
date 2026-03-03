@@ -9,6 +9,11 @@
       "type": "stdio",
       "command": "node",
       "args": ["/Users/garyriches/Documents/Source/MCP/Apple/messages/build/index.js"]
+    },
+    "apple-contacts": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/Users/garyriches/Documents/Source/MCP/Apple/contacts/build/index.js"]
     }
   }
 }
