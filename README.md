@@ -4,10 +4,15 @@ A collection of [Model Context Protocol (MCP)](https://modelcontextprotocol.io) 
 
 ## Servers
 
-| Server | Description | Tools |
-|--------|-------------|-------|
-| [Apple Notes](#apple-notes) | Read, create, update, and delete notes and folders | 8 |
-| [Apple Messages](#apple-messages) | Read message history, search conversations, and send messages | 5 |
+| Server | Status | Description |
+|--------|--------|-------------|
+| [Apple Notes](#apple-notes) | Done | Read, create, update, and delete notes and folders |
+| [Apple Messages](#apple-messages) | Done | Read message history, search conversations, and send messages |
+| Apple Contacts | Planned | Manage contacts and contact groups |
+| Apple Mail | Planned | Read, send, and manage email |
+| Apple Reminders | Planned | Create and manage reminders and lists |
+| Apple Calendar | Planned | Manage calendar events and schedules |
+| Apple Maps | Planned | Search locations, get directions, and place details |
 
 ## Requirements
 
@@ -20,7 +25,7 @@ A collection of [Model Context Protocol (MCP)](https://modelcontextprotocol.io) 
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-username/apple-mcp.git
+git clone https://github.com/griches/apple-mcp.git
 cd apple-mcp
 ```
 
