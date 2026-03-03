@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { join } from "node:path";
 
-const BINARY = join(__dirname, "..", "calendar-helper");
+const BINARY = join(__dirname, "calendar-helper");
 
 function runHelper(args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {
