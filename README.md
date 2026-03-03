@@ -12,7 +12,7 @@ A collection of [Model Context Protocol (MCP)](https://modelcontextprotocol.io) 
 | Apple Mail | Planned | Read, send, and manage email |
 | [Apple Reminders](#apple-reminders) | Done | Create and manage reminders and lists |
 | [Apple Calendar](#apple-calendar) | Done | Manage calendar events and schedules |
-| Apple Maps | Planned | Search locations, get directions, and place details |
+| [Apple Maps](#apple-maps) | Done | Search locations, get directions, and place details |
 
 ## Requirements
 
@@ -39,6 +39,9 @@ npx @griches/apple-reminders-mcp
 
 # Apple Calendar
 npx @griches/apple-calendar-mcp
+
+# Apple Maps
+npx @griches/apple-maps-mcp
 ```
 
 ### Claude Code
@@ -49,6 +52,7 @@ claude mcp add apple-messages -- npx @griches/apple-messages-mcp
 claude mcp add apple-contacts -- npx @griches/apple-contacts-mcp
 claude mcp add apple-reminders -- npx @griches/apple-reminders-mcp
 claude mcp add apple-calendar -- npx @griches/apple-calendar-mcp
+claude mcp add apple-maps -- npx @griches/apple-maps-mcp
 ```
 
 ### Claude Desktop
@@ -77,6 +81,10 @@ Add to your `claude_desktop_config.json`:
     "apple-calendar": {
       "command": "npx",
       "args": ["@griches/apple-calendar-mcp"]
+    },
+    "apple-maps": {
+      "command": "npx",
+      "args": ["@griches/apple-maps-mcp"]
     }
   }
 }
@@ -104,6 +112,9 @@ cd ../reminders && npm install && npm run build
 
 # Apple Calendar
 cd ../calendar && npm install && npm run build
+
+# Apple Maps
+cd ../maps && npm install && npm run build
 ```
 
 Then configure your MCP client to run the built files directly:
@@ -130,6 +141,10 @@ Then configure your MCP client to run the built files directly:
     "apple-calendar": {
       "command": "node",
       "args": ["/absolute/path/to/calendar/build/index.js"]
+    },
+    "apple-maps": {
+      "command": "node",
+      "args": ["/absolute/path/to/maps/build/index.js"]
     }
   }
 }
@@ -263,6 +278,28 @@ An MCP server that interacts with Apple Calendar via AppleScript.
 - "Show events in my Work calendar for next week"
 - "Create a meeting tomorrow at 2pm in my Work calendar"
 - "Search for events about standup"
+
+---
+
+## Apple Maps
+
+An MCP server that interacts with Apple Maps using Maps URL schemes.
+
+### Tools
+
+| Tool | Description |
+|------|-------------|
+| `search_location` | Search for a location in Apple Maps |
+| `get_directions` | Get directions between two locations (driving, walking, or transit) |
+| `drop_pin` | Drop a pin at specific coordinates |
+| `open_address` | Open a specific address in Apple Maps |
+
+### Usage Examples
+
+- "Search for coffee shops near Times Square"
+- "Get walking directions from Central Park to the Met"
+- "Show me 1 Apple Park Way, Cupertino on a map"
+- "Drop a pin at 48.8584, 2.2945"
 
 ---
 

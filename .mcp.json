@@ -24,6 +24,11 @@
       "type": "stdio",
       "command": "node",
       "args": ["/Users/garyriches/Documents/Source/MCP/Apple/calendar/build/index.js"]
+    },
+    "apple-maps": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/Users/garyriches/Documents/Source/MCP/Apple/maps/build/index.js"]
     }
   }
 }
