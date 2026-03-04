@@ -92,6 +92,26 @@ server.registerTool(
   }
 );
 
+// ---- save_to_favorites ----
+server.registerTool(
+  "save_to_favorites",
+  {
+    description: "Open a location in Apple Maps so you can save it as a favorite. (Maps opens the location — save it manually from the Maps interface.)",
+    inputSchema: z.object({
+      name: z.string().describe("Label/name for the favorite"),
+      address: z.string().describe("Address or place name to open in Maps"),
+    }),
+  },
+  async ({ name, address }) => {
+    try {
+      const result = await applescript.saveToFavorites(name, address);
+      return { content: [{ type: "text", text: result }] };
+    } catch (err) {
+      return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };
+    }
+  }
+);
+
 // ---- Start server ----
 async function main() {
   const transport = new StdioServerTransport();

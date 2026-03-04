@@ -17,8 +17,11 @@ npx @griches/apple-reminders-mcp
 | `list_reminders` | List reminders in a list (optionally include completed) |
 | `get_reminder` | Get full details of a reminder by name |
 | `create_reminder` | Create a new reminder with optional due date, notes, and priority |
+| `update_reminder` | Update an existing reminder's details |
 | `complete_reminder` | Mark a reminder as completed |
+| `uncomplete_reminder` | Mark a completed reminder as incomplete |
 | `delete_reminder` | Delete a reminder |
+| `delete_list` | Delete a reminder list and all its reminders |
 | `search_reminders` | Search reminders by name across lists |
 
 ## Configuration

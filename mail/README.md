@@ -15,10 +15,12 @@ npx @griches/apple-mail-mcp
 | `list_mailboxes` | List all mailboxes across accounts with unread counts |
 | `list_messages` | List recent messages in a mailbox |
 | `get_message` | Get the full content of an email by ID |
-| `search_messages` | Search emails by subject across mailboxes |
-| `send_email` | Send an email with optional CC/BCC |
+| `search_messages` | Search emails by subject or sender across mailboxes |
+| `send_email` | Send an email with optional CC/BCC (supports multiple recipients) |
 | `get_unread_count` | Get unread count for a mailbox or all mailboxes |
 | `move_message` | Move an email to a different mailbox |
+| `mark_read` | Mark an email as read or unread |
+| `delete_message` | Delete an email (moves to trash) |
 | `flag_message` | Flag or unflag an email message |
 
 ## Configuration

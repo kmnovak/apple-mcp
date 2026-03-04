@@ -37,11 +37,13 @@ server.registerTool(
     inputSchema: z.object({
       chat_id: z.string().describe("Chat identifier (e.g. iMessage;-;+1234567890)"),
       limit: z.number().optional().describe("Maximum number of messages to return (default 100)"),
+      from_date: z.string().optional().describe("Filter messages from this date (e.g. '2025-01-01' or '2025-03-15T14:00:00')"),
+      to_date: z.string().optional().describe("Filter messages up to this date (e.g. '2025-12-31')"),
     }),
   },
-  async ({ chat_id, limit }) => {
+  async ({ chat_id, limit, from_date, to_date }) => {
     try {
-      const messages = database.getChatMessages(chat_id, limit);
+      const messages = database.getChatMessages(chat_id, limit, from_date, to_date);
       return { content: [{ type: "text", text: JSON.stringify(messages, null, 2) }] };
     } catch (err) {
       return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };

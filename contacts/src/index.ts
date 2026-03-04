@@ -86,6 +86,40 @@ server.registerTool(
   }
 );
 
+// ---- update_contact ----
+server.registerTool(
+  "update_contact",
+  {
+    description: "Update an existing contact's details. For email and phone, new entries are added (existing ones are not removed).",
+    inputSchema: z.object({
+      name: z.string().describe("Full name of the contact to update"),
+      first_name: z.string().optional().describe("New first name"),
+      last_name: z.string().optional().describe("New last name"),
+      email: z.string().optional().describe("Email address to add"),
+      phone: z.string().optional().describe("Phone number to add"),
+      organization: z.string().optional().describe("New company or organization"),
+      job_title: z.string().optional().describe("New job title"),
+      note: z.string().optional().describe("New note"),
+    }),
+  },
+  async ({ name, first_name, last_name, email, phone, organization, job_title, note }) => {
+    try {
+      const result = await applescript.updateContact(name, {
+        firstName: first_name,
+        lastName: last_name,
+        email,
+        phone,
+        organization,
+        jobTitle: job_title,
+        note,
+      });
+      return { content: [{ type: "text", text: result }] };
+    } catch (err) {
+      return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };
+    }
+  }
+);
+
 // ---- create_contact ----
 server.registerTool(
   "create_contact",
@@ -180,6 +214,51 @@ server.registerTool(
     }
   }
 );
+
+// ---- remove_contact_from_group ----
+server.registerTool(
+  "remove_contact_from_group",
+  {
+    description: "Remove a contact from a group",
+    inputSchema: z.object({
+      contact_name: z.string().describe("Full name of the contact"),
+      group_name: z.string().describe("Name of the group to remove the contact from"),
+    }),
+  },
+  async ({ contact_name, group_name }) => {
+    try {
+      const result = await applescript.removeContactFromGroup(contact_name, group_name);
+      return { content: [{ type: "text", text: result }] };
+    } catch (err) {
+      return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };
+    }
+  }
+);
+
+if (!readOnly) {
+  // ---- delete_group ----
+  server.registerTool(
+    "delete_group",
+    {
+      description: "Delete a contact group",
+      inputSchema: z.object({
+        name: z.string().describe("Name of the group to delete"),
+        ...(confirmDestructive ? { confirm: z.boolean().optional().describe("Set to true to confirm this destructive action") } : {}),
+      }),
+    },
+    async ({ name, confirm }: { name: string; confirm?: unknown }) => {
+      if (confirmDestructive && !confirm) {
+        return { content: [{ type: "text", text: "This will permanently delete the contact group. Please confirm with the user, then call again with confirm: true." }] };
+      }
+      try {
+        const result = await applescript.deleteGroup(name);
+        return { content: [{ type: "text", text: result }] };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };
+      }
+    }
+  );
+}
 
 // ---- Start server ----
 async function main() {

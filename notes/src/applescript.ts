@@ -181,6 +181,46 @@ end tell`;
   return runAppleScript(script);
 }
 
+export async function moveNote(title: string, fromFolder: string, toFolder: string): Promise<string> {
+  const safeTitle = sanitize(title);
+  const safeFrom = sanitize(fromFolder);
+  const safeTo = sanitize(toFolder);
+  const script = `
+tell application "Notes"
+  set matchedNotes to (notes of folder "${safeFrom}" whose name is "${safeTitle}")
+  if (count of matchedNotes) is 0 then
+    error "Note not found: ${safeTitle} in folder ${safeFrom}"
+  end if
+  set n to item 1 of matchedNotes
+  move n to folder "${safeTo}"
+  return "Note moved: ${safeTitle} from ${safeFrom} to ${safeTo}"
+end tell`;
+  return runAppleScript(script);
+}
+
+export async function appendToNote(title: string, content: string, folder?: string): Promise<string> {
+  const safeTitle = sanitize(title);
+  const safeContent = sanitize(content);
+  let scope: string;
+  if (folder) {
+    const safeFolder = sanitize(folder);
+    scope = `notes of folder "${safeFolder}"`;
+  } else {
+    scope = "every note";
+  }
+  const script = `
+tell application "Notes"
+  set matchedNotes to (${scope} whose name is "${safeTitle}")
+  if (count of matchedNotes) is 0 then
+    error "Note not found: ${safeTitle}"
+  end if
+  set n to item 1 of matchedNotes
+  set body of n to (body of n) & "${safeContent}"
+  return "Content appended to note: ${safeTitle}"
+end tell`;
+  return runAppleScript(script);
+}
+
 export async function searchNotes(query: string, folder?: string): Promise<{ title: string; folder: string; id: string }[]> {
   const safeQuery = sanitize(query);
   let script: string;
@@ -189,7 +229,7 @@ export async function searchNotes(query: string, folder?: string): Promise<{ tit
     script = `
 tell application "Notes"
   set results to {}
-  set matchedNotes to (notes of folder "${safeFolder}" whose name contains "${safeQuery}")
+  set matchedNotes to (notes of folder "${safeFolder}" whose name contains "${safeQuery}" or body contains "${safeQuery}")
   repeat with n in matchedNotes
     set noteTitle to name of n
     set noteId to id of n
@@ -204,7 +244,7 @@ tell application "Notes"
   set results to {}
   repeat with f in folders
     set folderName to name of f
-    set matchedNotes to (notes of f whose name contains "${safeQuery}")
+    set matchedNotes to (notes of f whose name contains "${safeQuery}" or body contains "${safeQuery}")
     repeat with n in matchedNotes
       set noteTitle to name of n
       set noteId to id of n

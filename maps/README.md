@@ -16,6 +16,7 @@ npx @griches/apple-maps-mcp
 | `get_directions` | Get directions between two locations (driving, walking, or transit) |
 | `drop_pin` | Drop a pin at specific coordinates |
 | `open_address` | Open a specific address in Apple Maps |
+| `save_to_favorites` | Open a location in Maps so you can save it as a favorite |
 
 ## Configuration
 

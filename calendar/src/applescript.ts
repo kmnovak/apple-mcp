@@ -95,6 +95,56 @@ end tell`;
   return runAppleScript(script);
 }
 
+export async function updateEvent(
+  summary: string,
+  calendarName: string | undefined,
+  updates: { newSummary?: string; startDate?: string; endDate?: string; location?: string; description?: string; allDay?: boolean }
+): Promise<string> {
+  const safeSummary = sanitize(summary);
+  let setStatements = "";
+  if (updates.newSummary) setStatements += `\n    set summary of e to "${sanitize(updates.newSummary)}"`;
+  if (updates.location) setStatements += `\n    set location of e to "${sanitize(updates.location)}"`;
+  if (updates.description) setStatements += `\n    set description of e to "${sanitize(updates.description)}"`;
+  if (updates.allDay !== undefined) setStatements += `\n    set allday event of e to ${updates.allDay}`;
+
+  let dateSetup = "";
+  if (updates.startDate) {
+    dateSetup += `\n    ${dateToAppleScript(updates.startDate, "eventStart")}`;
+    dateSetup += `\n    set start date of e to eventStart`;
+  }
+  if (updates.endDate) {
+    dateSetup += `\n    ${dateToAppleScript(updates.endDate, "eventEnd")}`;
+    dateSetup += `\n    set end date of e to eventEnd`;
+  }
+
+  let script: string;
+  if (calendarName) {
+    const safeCal = sanitize(calendarName);
+    script = `
+tell application "Calendar"
+  set matchedEvents to (every event of calendar "${safeCal}" whose summary is "${safeSummary}")
+  if (count of matchedEvents) is 0 then
+    error "Event not found: ${safeSummary}"
+  end if
+  set e to item 1 of matchedEvents${setStatements}${dateSetup}
+  return "Event updated: ${safeSummary}"
+end tell`;
+  } else {
+    script = `
+tell application "Calendar"
+  repeat with c in calendars
+    set matchedEvents to (every event of c whose summary is "${safeSummary}")
+    if (count of matchedEvents) > 0 then
+      set e to item 1 of matchedEvents${setStatements}${dateSetup}
+      return "Event updated: ${safeSummary}"
+    end if
+  end repeat
+  error "Event not found: ${safeSummary}"
+end tell`;
+  }
+  return runAppleScript(script);
+}
+
 export async function deleteEvent(summary: string, calendarName?: string): Promise<string> {
   const safeSummary = sanitize(summary);
   let scope: string;

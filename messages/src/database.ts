@@ -155,10 +155,30 @@ export interface Message {
 
 /**
  * Get messages for a specific chat, ordered by date descending.
+ * Optionally filter by date range (ISO 8601 strings like '2025-01-01' or '2025-03-15T14:00:00').
  */
-export function getChatMessages(chatId: string, limit: number = 100): Message[] {
+export function getChatMessages(chatId: string, limit: number = 100, fromDate?: string, toDate?: string): Message[] {
   const db = openDb();
   try {
+    let dateFilter = "";
+    const params: (string | number)[] = [chatId];
+
+    if (fromDate) {
+      // Convert ISO date to Apple timestamp (nanoseconds since 2001-01-01)
+      const fromUnix = new Date(fromDate).getTime() / 1000;
+      const fromApple = (fromUnix - APPLE_EPOCH_OFFSET) * 1e9;
+      dateFilter += " AND m.date >= ?";
+      params.push(fromApple);
+    }
+    if (toDate) {
+      const toUnix = new Date(toDate).getTime() / 1000;
+      const toApple = (toUnix - APPLE_EPOCH_OFFSET) * 1e9;
+      dateFilter += " AND m.date <= ?";
+      params.push(toApple);
+    }
+
+    params.push(limit);
+
     const rows = db.prepare(`
       SELECT
         m.ROWID as rowid,
@@ -172,10 +192,10 @@ export function getChatMessages(chatId: string, limit: number = 100): Message[] 
       JOIN chat_message_join cmj ON cmj.message_id = m.ROWID
       JOIN chat c ON c.ROWID = cmj.chat_id
       LEFT JOIN handle h ON h.ROWID = m.handle_id
-      WHERE c.chat_identifier = ?
+      WHERE c.chat_identifier = ?${dateFilter}
       ORDER BY m.date DESC
       LIMIT ?
-    `).all(chatId, limit) as Array<{
+    `).all(...params) as Array<{
       rowid: number;
       text: string | null;
       attributedBody: Buffer | null;

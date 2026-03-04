@@ -17,6 +17,7 @@ npx @griches/apple-calendar-mcp
 | `list_events` | List events in a specific calendar within a date range |
 | `get_event` | Get full details of an event by summary/title |
 | `create_event` | Create a new event with date, time, location, and description |
+| `update_event` | Update an existing event's details |
 | `delete_event` | Delete an event by summary/title |
 | `search_events` | Search events by summary/title across calendars |
 

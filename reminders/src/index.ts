@@ -111,6 +111,35 @@ server.registerTool(
   }
 );
 
+// ---- update_reminder ----
+server.registerTool(
+  "update_reminder",
+  {
+    description: "Update an existing reminder's details",
+    inputSchema: z.object({
+      name: z.string().describe("Name of the reminder to update"),
+      list: z.string().optional().describe("List the reminder is in (searches all lists if omitted)"),
+      new_name: z.string().optional().describe("New name for the reminder"),
+      body: z.string().optional().describe("New notes/body text"),
+      due_date: z.string().optional().describe("New due date (e.g. 'March 15, 2025 at 2:00 PM')"),
+      priority: z.number().optional().describe("New priority: 0 (none), 1 (high), 5 (medium), 9 (low)"),
+    }),
+  },
+  async ({ name, list, new_name, body, due_date, priority }) => {
+    try {
+      const result = await applescript.updateReminder(name, list, {
+        newName: new_name,
+        body,
+        dueDate: due_date,
+        priority,
+      });
+      return { content: [{ type: "text", text: result }] };
+    } catch (err) {
+      return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };
+    }
+  }
+);
+
 // ---- complete_reminder ----
 server.registerTool(
   "complete_reminder",
@@ -124,6 +153,26 @@ server.registerTool(
   async ({ name, list }) => {
     try {
       const result = await applescript.completeReminder(name, list);
+      return { content: [{ type: "text", text: result }] };
+    } catch (err) {
+      return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };
+    }
+  }
+);
+
+// ---- uncomplete_reminder ----
+server.registerTool(
+  "uncomplete_reminder",
+  {
+    description: "Mark a completed reminder as incomplete",
+    inputSchema: z.object({
+      name: z.string().describe("Name of the reminder to uncomplete"),
+      list: z.string().optional().describe("List the reminder is in (searches all lists if omitted)"),
+    }),
+  },
+  async ({ name, list }) => {
+    try {
+      const result = await applescript.uncompleteReminder(name, list);
       return { content: [{ type: "text", text: result }] };
     } catch (err) {
       return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };
@@ -149,6 +198,29 @@ if (!readOnly) {
       }
       try {
         const result = await applescript.deleteReminder(name, list);
+        return { content: [{ type: "text", text: result }] };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };
+      }
+    }
+  );
+
+  // ---- delete_list ----
+  server.registerTool(
+    "delete_list",
+    {
+      description: "Delete a reminder list and all its reminders",
+      inputSchema: z.object({
+        name: z.string().describe("Name of the list to delete"),
+        ...(confirmDestructive ? { confirm: z.boolean().optional().describe("Set to true to confirm this destructive action") } : {}),
+      }),
+    },
+    async ({ name, confirm }: { name: string; confirm?: unknown }) => {
+      if (confirmDestructive && !confirm) {
+        return { content: [{ type: "text", text: "This will permanently delete the reminder list and all its reminders. Please confirm with the user, then call again with confirm: true." }] };
+      }
+      try {
+        const result = await applescript.deleteList(name);
         return { content: [{ type: "text", text: result }] };
       } catch (err) {
         return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };

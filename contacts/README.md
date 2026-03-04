@@ -17,9 +17,12 @@ npx @griches/apple-contacts-mcp
 | `get_contact` | Get full details of a contact (emails, phones, addresses, etc.) |
 | `search_contacts` | Search contacts by name |
 | `create_contact` | Create a new contact with optional email, phone, organization |
+| `update_contact` | Update an existing contact's details |
 | `delete_contact` | Delete a contact by name |
 | `create_group` | Create a new group |
+| `delete_group` | Delete a contact group |
 | `add_contact_to_group` | Add a contact to a group |
+| `remove_contact_from_group` | Remove a contact from a group |
 
 ## Configuration
 

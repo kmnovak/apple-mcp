@@ -72,17 +72,18 @@ server.registerTool(
 server.registerTool(
   "search_messages",
   {
-    description: "Search emails by subject across mailboxes",
+    description: "Search emails by subject or sender across mailboxes",
     inputSchema: z.object({
-      query: z.string().describe("Text to search for in email subjects"),
+      query: z.string().describe("Text to search for in email subjects or sender"),
       mailbox: z.string().optional().describe("Mailbox to search in (searches all if omitted)"),
       account: z.string().optional().describe("Account to search in (required if mailbox is specified)"),
       limit: z.number().optional().describe("Maximum number of results (default 25)"),
+      search_field: z.enum(["subject", "sender"]).optional().describe("Field to search: 'subject' (default) or 'sender'"),
     }),
   },
-  async ({ query, mailbox, account, limit }) => {
+  async ({ query, mailbox, account, limit, search_field }) => {
     try {
-      const results = await applescript.searchMessages(query, mailbox, account, limit);
+      const results = await applescript.searchMessages(query, mailbox, account, limit, search_field);
       return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
     } catch (err) {
       return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };
@@ -96,11 +97,11 @@ server.registerTool(
   {
     description: "Send an email via Apple Mail",
     inputSchema: z.object({
-      to: z.string().describe("Recipient email address"),
+      to: z.string().describe("Recipient email address (comma-separated for multiple recipients)"),
       subject: z.string().describe("Email subject"),
       body: z.string().describe("Email body text"),
-      cc: z.string().optional().describe("CC recipient email address"),
-      bcc: z.string().optional().describe("BCC recipient email address"),
+      cc: z.string().optional().describe("CC recipient email address (comma-separated for multiple)"),
+      bcc: z.string().optional().describe("BCC recipient email address (comma-separated for multiple)"),
       from_account: z.string().optional().describe("Account to send from (uses default if omitted)"),
     }),
   },
@@ -154,6 +155,49 @@ server.registerTool(
   async ({ message_id, from_mailbox, from_account, to_mailbox, to_account }) => {
     try {
       const result = await applescript.moveMessage(message_id, from_mailbox, from_account, to_mailbox, to_account);
+      return { content: [{ type: "text", text: result }] };
+    } catch (err) {
+      return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };
+    }
+  }
+);
+
+// ---- mark_read ----
+server.registerTool(
+  "mark_read",
+  {
+    description: "Mark an email message as read or unread",
+    inputSchema: z.object({
+      message_id: z.number().describe("ID of the message"),
+      mailbox: z.string().describe("Mailbox the message is in"),
+      account: z.string().describe("Account the mailbox belongs to"),
+      read: z.boolean().describe("True to mark as read, false to mark as unread"),
+    }),
+  },
+  async ({ message_id, mailbox, account, read }) => {
+    try {
+      const result = await applescript.markRead(message_id, mailbox, account, read);
+      return { content: [{ type: "text", text: result }] };
+    } catch (err) {
+      return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };
+    }
+  }
+);
+
+// ---- delete_message ----
+server.registerTool(
+  "delete_message",
+  {
+    description: "Delete an email message (moves to trash)",
+    inputSchema: z.object({
+      message_id: z.number().describe("ID of the message to delete"),
+      mailbox: z.string().describe("Mailbox the message is in"),
+      account: z.string().describe("Account the mailbox belongs to"),
+    }),
+  },
+  async ({ message_id, mailbox, account }) => {
+    try {
+      const result = await applescript.deleteMessage(message_id, mailbox, account);
       return { content: [{ type: "text", text: result }] };
     } catch (err) {
       return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };

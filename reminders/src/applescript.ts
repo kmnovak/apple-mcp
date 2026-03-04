@@ -194,6 +194,78 @@ end tell`;
   return runAppleScript(script);
 }
 
+export async function updateReminder(
+  name: string,
+  listName: string | undefined,
+  updates: { newName?: string; body?: string; dueDate?: string; priority?: number }
+): Promise<string> {
+  const safeName = sanitize(name);
+  let scope: string;
+  if (listName) {
+    const safeList = sanitize(listName);
+    scope = `reminders of list "${safeList}"`;
+  } else {
+    scope = "every reminder";
+  }
+  let setStatements = "";
+  if (updates.newName) setStatements += `\n  set name of r to "${sanitize(updates.newName)}"`;
+  if (updates.body) setStatements += `\n  set body of r to "${sanitize(updates.body)}"`;
+  if (updates.priority !== undefined) setStatements += `\n  set priority of r to ${updates.priority}`;
+
+  let dateSetup = "";
+  if (updates.dueDate) {
+    const safeDate = sanitize(updates.dueDate);
+    dateSetup = `\n  set due date of r to date "${safeDate}"`;
+  }
+
+  const script = `
+tell application "Reminders"
+  set matchedReminders to (${scope} whose name is "${safeName}")
+  if (count of matchedReminders) is 0 then
+    error "Reminder not found: ${safeName}"
+  end if
+  set r to item 1 of matchedReminders${setStatements}${dateSetup}
+  return "Reminder updated: ${safeName}"
+end tell`;
+  return runAppleScript(script);
+}
+
+export async function uncompleteReminder(name: string, listName?: string): Promise<string> {
+  const safeName = sanitize(name);
+  let scope: string;
+  if (listName) {
+    const safeList = sanitize(listName);
+    scope = `reminders of list "${safeList}"`;
+  } else {
+    scope = "every reminder";
+  }
+  const script = `
+tell application "Reminders"
+  set matchedReminders to (${scope} whose name is "${safeName}")
+  if (count of matchedReminders) is 0 then
+    error "Reminder not found: ${safeName}"
+  end if
+  set r to item 1 of matchedReminders
+  set completed of r to false
+  return "Reminder uncompleted: ${safeName}"
+end tell`;
+  return runAppleScript(script);
+}
+
+export async function deleteList(name: string): Promise<string> {
+  const safeName = sanitize(name);
+  const script = `
+tell application "Reminders"
+  set matchedLists to (every list whose name is "${safeName}")
+  if (count of matchedLists) is 0 then
+    error "List not found: ${safeName}"
+  end if
+  delete item 1 of matchedLists
+  return "List deleted: ${safeName}"
+end tell`;
+  return runAppleScript(script);
+}
+
 export async function deleteReminder(name: string, listName?: string): Promise<string> {
   const safeName = sanitize(name);
   let scope: string;

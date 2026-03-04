@@ -18,9 +18,11 @@ npx @griches/apple-notes-mcp
 | `get_note` | Get the full content of a note by title |
 | `create_note` | Create a new note (HTML body) in a folder |
 | `update_note` | Update the body of an existing note |
+| `move_note` | Move a note from one folder to another |
+| `append_to_note` | Append HTML content to an existing note |
 | `delete_note` | Delete a note |
 | `delete_folder` | Delete a folder and all its notes |
-| `search_notes` | Search notes by keyword across folders |
+| `search_notes` | Search notes by keyword in titles and body content |
 
 ## Configuration
 

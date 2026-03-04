@@ -120,6 +120,39 @@ server.registerTool(
   }
 );
 
+// ---- update_event ----
+server.registerTool(
+  "update_event",
+  {
+    description: "Update an existing calendar event's details",
+    inputSchema: z.object({
+      summary: z.string().describe("Current summary/title of the event to update"),
+      calendar: z.string().optional().describe("Calendar the event is in (searches all calendars if omitted)"),
+      new_summary: z.string().optional().describe("New title/summary for the event"),
+      start_date: z.string().optional().describe("New start date and time (e.g. '15 March 2025 at 2:00 PM')"),
+      end_date: z.string().optional().describe("New end date and time (e.g. '15 March 2025 at 3:00 PM')"),
+      location: z.string().optional().describe("New location"),
+      description: z.string().optional().describe("New description or notes"),
+      all_day: z.boolean().optional().describe("Whether this is an all-day event"),
+    }),
+  },
+  async ({ summary, calendar, new_summary, start_date, end_date, location, description, all_day }) => {
+    try {
+      const result = await applescript.updateEvent(summary, calendar, {
+        newSummary: new_summary,
+        startDate: start_date,
+        endDate: end_date,
+        location,
+        description,
+        allDay: all_day,
+      });
+      return { content: [{ type: "text", text: result }] };
+    } catch (err) {
+      return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };
+    }
+  }
+);
+
 if (!readOnly) {
   // ---- delete_event ----
   server.registerTool(

@@ -13,7 +13,7 @@ npx @griches/apple-messages-mcp
 | Tool | Description |
 |------|-------------|
 | `list_chats` | List recent chats with last message preview |
-| `get_chat_messages` | Get message history for a specific chat |
+| `get_chat_messages` | Get message history for a specific chat (with optional date range filtering) |
 | `search_messages` | Search messages by text content |
 | `send_message` | Send an iMessage or SMS |
 | `get_chat_participants` | Get participants of a chat |

@@ -220,6 +220,71 @@ end tell`;
   return runAppleScript(script);
 }
 
+export async function updateContact(
+  name: string,
+  updates: { firstName?: string; lastName?: string; email?: string; phone?: string; organization?: string; jobTitle?: string; note?: string }
+): Promise<string> {
+  const safeName = sanitize(name);
+  let setStatements = "";
+  if (updates.firstName) setStatements += `\n  set first name of p to "${sanitize(updates.firstName)}"`;
+  if (updates.lastName) setStatements += `\n  set last name of p to "${sanitize(updates.lastName)}"`;
+  if (updates.organization) setStatements += `\n  set organization of p to "${sanitize(updates.organization)}"`;
+  if (updates.jobTitle) setStatements += `\n  set job title of p to "${sanitize(updates.jobTitle)}"`;
+  if (updates.note) setStatements += `\n  set note of p to "${sanitize(updates.note)}"`;
+  if (updates.email) {
+    const safeEmail = sanitize(updates.email);
+    setStatements += `\n  make new email at end of emails of p with properties {label:"work", value:"${safeEmail}"}`;
+  }
+  if (updates.phone) {
+    const safePhone = sanitize(updates.phone);
+    setStatements += `\n  make new phone at end of phones of p with properties {label:"mobile", value:"${safePhone}"}`;
+  }
+  const script = `
+tell application "Contacts"
+  set matchedPeople to (every person whose name is "${safeName}")
+  if (count of matchedPeople) is 0 then
+    error "Contact not found: ${safeName}"
+  end if
+  set p to item 1 of matchedPeople${setStatements}
+  save
+  return "Contact updated: ${safeName}"
+end tell`;
+  return runAppleScript(script);
+}
+
+export async function removeContactFromGroup(contactName: string, groupName: string): Promise<string> {
+  const safeName = sanitize(contactName);
+  const safeGroup = sanitize(groupName);
+  const script = `
+tell application "Contacts"
+  set matchedPeople to (every person whose name is "${safeName}")
+  if (count of matchedPeople) is 0 then
+    error "Contact not found: ${safeName}"
+  end if
+  set p to item 1 of matchedPeople
+  set g to group "${safeGroup}"
+  remove p from g
+  save
+  return "Removed ${safeName} from group ${safeGroup}"
+end tell`;
+  return runAppleScript(script);
+}
+
+export async function deleteGroup(name: string): Promise<string> {
+  const safeName = sanitize(name);
+  const script = `
+tell application "Contacts"
+  set matchedGroups to (every group whose name is "${safeName}")
+  if (count of matchedGroups) is 0 then
+    error "Group not found: ${safeName}"
+  end if
+  delete item 1 of matchedGroups
+  save
+  return "Group deleted: ${safeName}"
+end tell`;
+  return runAppleScript(script);
+}
+
 export async function deleteContact(name: string): Promise<string> {
   const safeName = sanitize(name);
   const script = `

@@ -146,10 +146,12 @@ export async function searchMessages(
   query: string,
   mailboxName?: string,
   accountName?: string,
-  limit?: number
+  limit?: number,
+  searchField?: "subject" | "sender"
 ): Promise<{ id: number; subject: string; sender: string; date: string; mailbox: string; account: string }[]> {
   const safeQuery = sanitize(query);
   const maxResults = limit || 25;
+  const field = searchField === "sender" ? "sender" : "subject";
 
   let script: string;
   if (mailboxName && accountName) {
@@ -159,7 +161,7 @@ export async function searchMessages(
 tell application "Mail"
   set results to {}
   set mb to mailbox "${safeMb}" of account "${safeAcct}"
-  set matchedMsgs to (every message of mb whose subject contains "${safeQuery}")
+  set matchedMsgs to (every message of mb whose ${field} contains "${safeQuery}")
   set maxCount to ${maxResults}
   set msgCount to count of matchedMsgs
   if msgCount < maxCount then set maxCount to msgCount
@@ -183,7 +185,7 @@ tell application "Mail"
     set acctName to name of acct
     repeat with mb in mailboxes of acct
       set mbName to name of mb
-      set matchedMsgs to (every message of mb whose subject contains "${safeQuery}")
+      set matchedMsgs to (every message of mb whose ${field} contains "${safeQuery}")
       repeat with m in matchedMsgs
         if resultCount >= ${maxResults} then exit repeat
         set mId to id of m
@@ -215,18 +217,26 @@ export async function sendEmail(
   body: string,
   options?: { cc?: string; bcc?: string; from?: string }
 ): Promise<string> {
-  const safeTo = sanitize(to);
   const safeSubject = sanitize(subject);
   const safeBody = sanitize(body);
 
-  let recipientBlock = `make new to recipient at end of to recipients with properties {address:"${safeTo}"}`;
+  // Support multiple comma-separated recipients
+  const toAddresses = to.split(",").map((a) => a.trim()).filter(Boolean);
+  let recipientBlock = toAddresses
+    .map((addr) => `make new to recipient at end of to recipients with properties {address:"${sanitize(addr)}"}`)
+    .join("\n    ");
+
   if (options?.cc) {
-    const safeCc = sanitize(options.cc);
-    recipientBlock += `\n    make new cc recipient at end of cc recipients with properties {address:"${safeCc}"}`;
+    const ccAddresses = options.cc.split(",").map((a) => a.trim()).filter(Boolean);
+    recipientBlock += "\n    " + ccAddresses
+      .map((addr) => `make new cc recipient at end of cc recipients with properties {address:"${sanitize(addr)}"}`)
+      .join("\n    ");
   }
   if (options?.bcc) {
-    const safeBcc = sanitize(options.bcc);
-    recipientBlock += `\n    make new bcc recipient at end of bcc recipients with properties {address:"${safeBcc}"}`;
+    const bccAddresses = options.bcc.split(",").map((a) => a.trim()).filter(Boolean);
+    recipientBlock += "\n    " + bccAddresses
+      .map((addr) => `make new bcc recipient at end of bcc recipients with properties {address:"${sanitize(addr)}"}`)
+      .join("\n    ");
   }
 
   let accountPart = "";
@@ -242,7 +252,7 @@ tell application "Mail"
     ${recipientBlock}
   end tell
   send newMessage
-  return "Email sent to ${safeTo}: ${safeSubject}"
+  return "Email sent to ${sanitize(to)}: ${safeSubject}"
 end tell`;
   return runAppleScript(script);
 }
@@ -294,6 +304,49 @@ tell application "Mail"
   set m to item 1 of matchedMsgs
   move m to destMb
   return "Message moved to ${safeToMb}"
+end tell`;
+  return runAppleScript(script);
+}
+
+export async function markRead(
+  messageId: number,
+  mailboxName: string,
+  accountName: string,
+  read: boolean
+): Promise<string> {
+  const safeMb = sanitize(mailboxName);
+  const safeAcct = sanitize(accountName);
+  const script = `
+tell application "Mail"
+  set mb to mailbox "${safeMb}" of account "${safeAcct}"
+  set matchedMsgs to (every message of mb whose id is ${messageId})
+  if (count of matchedMsgs) is 0 then
+    error "Message not found with id: ${messageId}"
+  end if
+  set m to item 1 of matchedMsgs
+  set read status of m to ${read}
+  return "Message marked as ${read ? "read" : "unread"}"
+end tell`;
+  return runAppleScript(script);
+}
+
+export async function deleteMessage(
+  messageId: number,
+  mailboxName: string,
+  accountName: string
+): Promise<string> {
+  const safeMb = sanitize(mailboxName);
+  const safeAcct = sanitize(accountName);
+  const script = `
+tell application "Mail"
+  set mb to mailbox "${safeMb}" of account "${safeAcct}"
+  set matchedMsgs to (every message of mb whose id is ${messageId})
+  if (count of matchedMsgs) is 0 then
+    error "Message not found with id: ${messageId}"
+  end if
+  set m to item 1 of matchedMsgs
+  delete m
+  return "Message deleted (moved to trash)"
 end tell`;
   return runAppleScript(script);
 }

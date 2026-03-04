@@ -6,12 +6,12 @@ A collection of [Model Context Protocol (MCP)](https://modelcontextprotocol.io) 
 
 | Server | Status | Description |
 |--------|--------|-------------|
-| [Apple Notes](#apple-notes) | Done | Read, create, update, and delete notes and folders |
+| [Apple Notes](#apple-notes) | Done | Read, create, update, move, and delete notes and folders |
 | [Apple Messages](#apple-messages) | Done | Read message history, search conversations, and send messages |
-| [Apple Contacts](#apple-contacts) | Done | Manage contacts and contact groups |
-| [Apple Mail](#apple-mail) | Done | Read, send, and manage email |
-| [Apple Reminders](#apple-reminders) | Done | Create and manage reminders and lists |
-| [Apple Calendar](#apple-calendar) | Done | Manage calendar events and schedules |
+| [Apple Contacts](#apple-contacts) | Done | Manage contacts, groups, and contact details |
+| [Apple Mail](#apple-mail) | Done | Read, send, search, flag, and manage email |
+| [Apple Reminders](#apple-reminders) | Done | Create, update, complete, and manage reminders and lists |
+| [Apple Calendar](#apple-calendar) | Done | Create, update, and manage calendar events |
 | [Apple Maps](#apple-maps) | Done | Search locations, get directions, and drop pins (visual only — limited by Apple's automation support) |
 
 ## Requirements
@@ -60,8 +60,8 @@ claude mcp add apple-messages -- npx @griches/apple-messages-mcp --confirm-destr
 | Server | Destructive tools |
 |--------|-------------------|
 | Notes | `delete_note`, `delete_folder` |
-| Contacts | `delete_contact` |
-| Reminders | `delete_reminder` |
+| Contacts | `delete_contact`, `delete_group` |
+| Reminders | `delete_reminder`, `delete_list` |
 | Calendar | `delete_event` |
 
 ## Quick Start
@@ -225,9 +225,11 @@ An MCP server that interacts with Apple Notes via AppleScript.
 | `get_note` | Get the full content of a note by title |
 | `create_note` | Create a new note (HTML body) in a folder |
 | `update_note` | Update the body of an existing note |
+| `move_note` | Move a note from one folder to another |
+| `append_to_note` | Append HTML content to an existing note |
 | `delete_note` | Delete a note |
 | `delete_folder` | Delete a folder and all its notes |
-| `search_notes` | Search notes by keyword across folders |
+| `search_notes` | Search notes by keyword in titles and body content |
 
 ### Usage Examples
 
@@ -247,7 +249,7 @@ An MCP server that reads messages from the macOS Messages database (SQLite) and 
 | Tool | Description |
 |------|-------------|
 | `list_chats` | List recent chats with last message preview |
-| `get_chat_messages` | Get message history for a specific chat |
+| `get_chat_messages` | Get message history for a specific chat (with optional date range filtering) |
 | `search_messages` | Search messages by text content |
 | `send_message` | Send an iMessage or SMS |
 | `get_chat_participants` | Get participants of a chat |
@@ -278,9 +280,12 @@ An MCP server that interacts with Apple Contacts via AppleScript.
 | `get_contact` | Get full details of a contact (emails, phones, addresses, etc.) |
 | `search_contacts` | Search contacts by name |
 | `create_contact` | Create a new contact with optional email, phone, organization |
+| `update_contact` | Update an existing contact's details |
 | `delete_contact` | Delete a contact by name |
 | `create_group` | Create a new group |
+| `delete_group` | Delete a contact group |
 | `add_contact_to_group` | Add a contact to a group |
+| `remove_contact_from_group` | Remove a contact from a group |
 
 ### Usage Examples
 
@@ -304,8 +309,11 @@ An MCP server that interacts with Apple Reminders via AppleScript.
 | `list_reminders` | List reminders in a list (optionally include completed) |
 | `get_reminder` | Get full details of a reminder by name |
 | `create_reminder` | Create a new reminder with optional due date, notes, and priority |
+| `update_reminder` | Update an existing reminder's details |
 | `complete_reminder` | Mark a reminder as completed |
+| `uncomplete_reminder` | Mark a completed reminder as incomplete |
 | `delete_reminder` | Delete a reminder |
+| `delete_list` | Delete a reminder list and all its reminders |
 | `search_reminders` | Search reminders by name across lists |
 
 ### Usage Examples
@@ -335,6 +343,7 @@ An MCP server that interacts with Apple Calendar. Read operations use a compiled
 | `list_events` | List events in a specific calendar within a date range |
 | `get_event` | Get full details of an event by summary/title |
 | `create_event` | Create a new event with date, time, location, and description |
+| `update_event` | Update an existing event's details |
 | `delete_event` | Delete an event by summary/title |
 | `search_events` | Search events by summary/title across calendars |
 
@@ -361,6 +370,7 @@ An MCP server that interacts with Apple Maps using Maps URL schemes.
 | `get_directions` | Get directions between two locations (driving, walking, or transit) |
 | `drop_pin` | Drop a pin at specific coordinates |
 | `open_address` | Open a specific address in Apple Maps |
+| `save_to_favorites` | Open a location in Maps so you can save it as a favorite |
 
 ### Usage Examples
 
@@ -382,10 +392,12 @@ An MCP server that interacts with Apple Mail via AppleScript.
 | `list_mailboxes` | List all mailboxes across accounts with unread counts |
 | `list_messages` | List recent messages in a mailbox |
 | `get_message` | Get the full content of an email by ID |
-| `search_messages` | Search emails by subject across mailboxes |
-| `send_email` | Send an email with optional CC/BCC |
+| `search_messages` | Search emails by subject or sender across mailboxes |
+| `send_email` | Send an email with optional CC/BCC (supports multiple recipients) |
 | `get_unread_count` | Get unread count for a mailbox or all mailboxes |
 | `move_message` | Move an email to a different mailbox |
+| `mark_read` | Mark an email as read or unread |
+| `delete_message` | Delete an email (moves to trash) |
 | `flag_message` | Flag or unflag an email message |
 
 ### Usage Examples
