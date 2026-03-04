@@ -297,3 +297,25 @@ tell application "Mail"
 end tell`;
   return runAppleScript(script);
 }
+
+export async function flagMessage(
+  messageId: number,
+  mailboxName: string,
+  accountName: string,
+  flagged: boolean
+): Promise<string> {
+  const safeMb = sanitize(mailboxName);
+  const safeAcct = sanitize(accountName);
+  const script = `
+tell application "Mail"
+  set mb to mailbox "${safeMb}" of account "${safeAcct}"
+  set matchedMsgs to (every message of mb whose id is ${messageId})
+  if (count of matchedMsgs) is 0 then
+    error "Message not found with id: ${messageId}"
+  end if
+  set m to item 1 of matchedMsgs
+  set flagged status of m to ${flagged}
+  return "Message ${flagged ? "flagged" : "unflagged"}"
+end tell`;
+  return runAppleScript(script);
+}

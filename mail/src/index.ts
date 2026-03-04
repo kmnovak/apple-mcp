@@ -161,6 +161,28 @@ server.registerTool(
   }
 );
 
+// ---- flag_message ----
+server.registerTool(
+  "flag_message",
+  {
+    description: "Flag or unflag an email message",
+    inputSchema: z.object({
+      message_id: z.number().describe("ID of the message to flag/unflag"),
+      mailbox: z.string().describe("Mailbox the message is in"),
+      account: z.string().describe("Account the mailbox belongs to"),
+      flagged: z.boolean().describe("True to flag, false to unflag"),
+    }),
+  },
+  async ({ message_id, mailbox, account, flagged }) => {
+    try {
+      const result = await applescript.flagMessage(message_id, mailbox, account, flagged);
+      return { content: [{ type: "text", text: result }] };
+    } catch (err) {
+      return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };
+    }
+  }
+);
+
 // ---- Start server ----
 async function main() {
   const transport = new StdioServerTransport();

@@ -19,6 +19,7 @@ npx @griches/apple-mail-mcp
 | `send_email` | Send an email with optional CC/BCC |
 | `get_unread_count` | Get unread count for a mailbox or all mailboxes |
 | `move_message` | Move an email to a different mailbox |
+| `flag_message` | Flag or unflag an email message |
 
 ## Configuration
 
