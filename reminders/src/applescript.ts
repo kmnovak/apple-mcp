@@ -9,10 +9,14 @@ export function sanitize(input: string): string {
     .replace(/\n/g, "\\n");
 }
 
-export function runAppleScript(script: string): Promise<string> {
+export function runAppleScript(script: string, timeout = 120000): Promise<string> {
   return new Promise((resolve, reject) => {
-    execFile("osascript", ["-e", script], { maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
+    execFile("osascript", ["-e", script], { maxBuffer: 10 * 1024 * 1024, timeout }, (error, stdout, stderr) => {
       if (error) {
+        if ((error as any).killed) {
+          reject(new Error("AppleScript timed out — the Reminders query took too long"));
+          return;
+        }
         reject(new Error(`AppleScript error: ${stderr || error.message}`));
         return;
       }
@@ -27,11 +31,11 @@ const RECORD_DELIM = "<<<>>>";
 export async function listLists(): Promise<{ name: string; id: string }[]> {
   const script = `
 tell application "Reminders"
+  set props to properties of every list
+  if (count of props) is 0 then return ""
   set listInfo to {}
-  repeat with l in lists
-    set listName to name of l
-    set listId to id of l
-    set end of listInfo to listName & "${FIELD_DELIM}" & listId
+  repeat with p in props
+    set end of listInfo to (name of p) & "${FIELD_DELIM}" & (id of p)
   end repeat
   set AppleScript's text item delimiters to "${RECORD_DELIM}"
   return listInfo as text
@@ -63,18 +67,15 @@ export async function listReminders(
   const script = `
 tell application "Reminders"
   set theList to list "${safeList}"
+  set props to properties of (every reminder of theList${filter})
+  if (count of props) is 0 then return ""
   set reminderList to {}
-  set matchedReminders to (every reminder of theList${filter})
-  repeat with r in matchedReminders
-    set rName to name of r
-    set rId to id of r
-    set rCompleted to completed of r
-    set rPriority to priority of r
+  repeat with p in props
     set rDueDate to ""
     try
-      set rDueDate to due date of r as text
+      set rDueDate to (due date of p) as text
     end try
-    set end of reminderList to rName & "${FIELD_DELIM}" & rId & "${FIELD_DELIM}" & (rCompleted as text) & "${FIELD_DELIM}" & rDueDate & "${FIELD_DELIM}" & (rPriority as text)
+    set end of reminderList to (name of p) & "${FIELD_DELIM}" & (id of p) & "${FIELD_DELIM}" & ((completed of p) as text) & "${FIELD_DELIM}" & rDueDate & "${FIELD_DELIM}" & ((priority of p) as text)
   end repeat
   set AppleScript's text item delimiters to "${RECORD_DELIM}"
   return reminderList as text
@@ -294,13 +295,11 @@ export async function searchReminders(query: string, listName?: string): Promise
     const safeList = sanitize(listName);
     script = `
 tell application "Reminders"
+  set props to properties of (reminders of list "${safeList}" whose name contains "${safeQuery}")
+  if (count of props) is 0 then return ""
   set results to {}
-  set matchedReminders to (reminders of list "${safeList}" whose name contains "${safeQuery}")
-  repeat with r in matchedReminders
-    set rName to name of r
-    set rId to id of r
-    set rCompleted to completed of r
-    set end of results to rName & "${FIELD_DELIM}" & rId & "${FIELD_DELIM}" & "${safeList}" & "${FIELD_DELIM}" & (rCompleted as text)
+  repeat with p in props
+    set end of results to (name of p) & "${FIELD_DELIM}" & (id of p) & "${FIELD_DELIM}" & "${safeList}" & "${FIELD_DELIM}" & ((completed of p) as text)
   end repeat
   set AppleScript's text item delimiters to "${RECORD_DELIM}"
   return results as text
@@ -309,15 +308,17 @@ end tell`;
     script = `
 tell application "Reminders"
   set results to {}
-  repeat with l in lists
-    set listName to name of l
-    set matchedReminders to (reminders of l whose name contains "${safeQuery}")
-    repeat with r in matchedReminders
-      set rName to name of r
-      set rId to id of r
-      set rCompleted to completed of r
-      set end of results to rName & "${FIELD_DELIM}" & rId & "${FIELD_DELIM}" & listName & "${FIELD_DELIM}" & (rCompleted as text)
-    end repeat
+  set listProps to properties of every list
+  repeat with lp in listProps
+    set lName to name of lp
+    set matchedReminders to (reminders of list (id of lp) whose name contains "${safeQuery}")
+    set reminderCount to count of matchedReminders
+    if reminderCount > 0 then
+      set props to properties of matchedReminders
+      repeat with p in props
+        set end of results to (name of p) & "${FIELD_DELIM}" & (id of p) & "${FIELD_DELIM}" & lName & "${FIELD_DELIM}" & ((completed of p) as text)
+      end repeat
+    end if
   end repeat
   set AppleScript's text item delimiters to "${RECORD_DELIM}"
   return results as text
