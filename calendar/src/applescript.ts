@@ -108,11 +108,25 @@ export async function updateEvent(
   if (updates.allDay !== undefined) setStatements += `\n    set allday event of e to ${updates.allDay}`;
 
   let dateSetup = "";
-  if (updates.startDate) {
+  if (updates.startDate && updates.endDate) {
+    // Build both date variables first, then set in safe order.
+    // Calendar enforces start < end after each individual `set`, so moving
+    // an event forward would fail if we blindly set start before end.
+    // Read the current end date and branch: if the new start would exceed it,
+    // set end first; otherwise set start first.
+    dateSetup += `\n    ${dateToAppleScript(updates.startDate, "eventStart")}`;
+    dateSetup += `\n    ${dateToAppleScript(updates.endDate, "eventEnd")}`;
+    dateSetup += `\n    if eventStart > end date of e then`;
+    dateSetup += `\n      set end date of e to eventEnd`;
+    dateSetup += `\n      set start date of e to eventStart`;
+    dateSetup += `\n    else`;
+    dateSetup += `\n      set start date of e to eventStart`;
+    dateSetup += `\n      set end date of e to eventEnd`;
+    dateSetup += `\n    end if`;
+  } else if (updates.startDate) {
     dateSetup += `\n    ${dateToAppleScript(updates.startDate, "eventStart")}`;
     dateSetup += `\n    set start date of e to eventStart`;
-  }
-  if (updates.endDate) {
+  } else if (updates.endDate) {
     dateSetup += `\n    ${dateToAppleScript(updates.endDate, "eventEnd")}`;
     dateSetup += `\n    set end date of e to eventEnd`;
   }
