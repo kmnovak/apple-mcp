@@ -1,6 +1,6 @@
 # @griches/apple-calendar-mcp
 
-An [MCP](https://modelcontextprotocol.io) server that gives AI assistants access to Apple Calendar on macOS via AppleScript.
+An [MCP](https://modelcontextprotocol.io) server that gives AI assistants access to Apple Calendar on macOS. Read operations use EventKit directly for fast, reliable access; write operations use AppleScript.
 
 ## Quick Start
 
@@ -93,7 +93,7 @@ Add to your `claude_desktop_config.json`:
 
 ## Requirements
 
-- **macOS** (uses AppleScript)
+- **macOS 13+**
 - **Node.js** 18+
 
 ## License

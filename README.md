@@ -16,10 +16,10 @@ A collection of [Model Context Protocol (MCP)](https://modelcontextprotocol.io) 
 
 ## Requirements
 
-- **macOS** (uses AppleScript and macOS-specific APIs)
+- **macOS 13+**
 - **Node.js** 18+ (22+ for Apple Messages)
 - **Full Disk Access** granted to your terminal app (System Settings > Privacy & Security > Full Disk Access) — required for reading the Messages database
-- **The associated Apple app must be running** — each MCP server communicates with its corresponding app via AppleScript, so the app (e.g. Contacts, Mail, Notes) needs to be open for the server to function
+- **The associated Apple app must be running** for AppleScript-based servers (Notes, Contacts, Mail, Messages, Maps) — these communicate via AppleScript so the app needs to be open. Calendar and Reminders use EventKit directly and do not require the app to be open.
 
 ## Safety Modes
 
@@ -298,7 +298,7 @@ An MCP server that interacts with Apple Contacts via AppleScript.
 
 ## Apple Reminders
 
-An MCP server that interacts with Apple Reminders via AppleScript.
+An MCP server that interacts with Apple Reminders via EventKit — fast, reliable, and no dependency on the Reminders app being open.
 
 ### Tools
 
@@ -306,7 +306,7 @@ An MCP server that interacts with Apple Reminders via AppleScript.
 |------|-------------|
 | `list_lists` | List all reminder lists |
 | `create_list` | Create a new reminder list |
-| `list_reminders` | List reminders in a list (optionally include completed) |
+| `list_reminders` | List reminders with a due date in a list (optionally include completed) |
 | `get_reminder` | Get full details of a reminder by name |
 | `create_reminder` | Create a new reminder with optional due date, notes, and priority |
 | `update_reminder` | Update an existing reminder's details |
@@ -327,12 +327,12 @@ An MCP server that interacts with Apple Reminders via AppleScript.
 
 ## Apple Calendar
 
-An MCP server that interacts with Apple Calendar. Read operations use a compiled Swift EventKit binary for fast access (~0.1s vs 50-140s via AppleScript). Write operations use AppleScript.
+An MCP server that interacts with Apple Calendar via EventKit — fast, reliable, and no dependency on the Calendar app being open for reads. Write operations (create, update, delete) use AppleScript.
 
 ### Permissions
 
-- **Calendar access**: macOS will prompt you to grant calendar access the first time a read operation is used (System Settings > Privacy & Security > Calendars)
-- **Creating/deleting events**: macOS will prompt you to allow your terminal app to control the Calendar app via AppleScript
+- **Calendar access**: macOS will prompt you to grant calendar access the first time the server runs (System Settings > Privacy & Security > Calendars)
+- **Creating/updating/deleting events**: macOS will prompt you to allow your terminal app to control the Calendar app via AppleScript
 
 ### Tools
 

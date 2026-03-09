@@ -1,6 +1,6 @@
 # @griches/apple-reminders-mcp
 
-An [MCP](https://modelcontextprotocol.io) server that gives AI assistants access to Apple Reminders on macOS via AppleScript.
+An [MCP](https://modelcontextprotocol.io) server that gives AI assistants access to Apple Reminders on macOS via EventKit — fast, reliable, and no dependency on the Reminders app being open.
 
 ## Quick Start
 
@@ -14,7 +14,7 @@ npx @griches/apple-reminders-mcp
 |------|-------------|
 | `list_lists` | List all reminder lists |
 | `create_list` | Create a new reminder list |
-| `list_reminders` | List reminders in a list (optionally include completed) |
+| `list_reminders` | List reminders with a due date in a list (optionally include completed) |
 | `get_reminder` | Get full details of a reminder by name |
 | `create_reminder` | Create a new reminder with optional due date, notes, and priority |
 | `update_reminder` | Update an existing reminder's details |
@@ -49,7 +49,7 @@ Add to your `claude_desktop_config.json`:
 
 ## Requirements
 
-- **macOS** (uses AppleScript)
+- **macOS 13+**
 - **Node.js** 18+
 
 ## License
