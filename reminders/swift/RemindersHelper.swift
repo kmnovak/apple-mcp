@@ -251,6 +251,23 @@ func deleteList(store: EKEventStore, name: String) {
     print("\"List deleted: \(name)\"")
 }
 
+/// Syncs the due-date alarm to match new DateComponents.
+/// - Removes all existing absolute-date alarms (the ones Reminders creates to fire at the due date).
+/// - Adds a new absolute alarm at the new due date so the Reminders app shows and triggers correctly.
+/// - Relative alarms (e.g. "15 min before") are left untouched.
+func syncDueDateAlarm(_ reminder: EKReminder, to components: DateComponents?) {
+    // Remove existing absolute-date alarms
+    if let existing = reminder.alarms {
+        for alarm in existing where alarm.absoluteDate != nil {
+            reminder.removeAlarm(alarm)
+        }
+    }
+    // Add a new absolute alarm at the due date (matches Reminders.app behaviour)
+    if let components = components, let date = Calendar.current.date(from: components) {
+        reminder.addAlarm(EKAlarm(absoluteDate: date))
+    }
+}
+
 func createReminder(store: EKEventStore, name: String, listName: String, body: String?, dueDateISO: String?, priority: Int?) {
     let allLists = store.calendars(for: .reminder)
     guard let targetList = allLists.first(where: { $0.title == listName }) else {
@@ -266,6 +283,7 @@ func createReminder(store: EKEventStore, name: String, listName: String, body: S
             exitWithError("Invalid due date: \(dueDateISO)")
         }
         reminder.dueDateComponents = components
+        syncDueDateAlarm(reminder, to: components)
     }
     do {
         try store.save(reminder, commit: true)
@@ -295,11 +313,13 @@ func updateReminder(store: EKEventStore, name: String?, id: String?, listName: S
     if let dueDateISO = dueDateISO {
         if dueDateISO == "none" {
             reminder.dueDateComponents = nil
+            syncDueDateAlarm(reminder, to: nil)
         } else {
             guard let components = parseISOToDateComponents(dueDateISO) else {
                 exitWithError("Invalid due date: \(dueDateISO)")
             }
             reminder.dueDateComponents = components
+            syncDueDateAlarm(reminder, to: components)
         }
     }
     do {
