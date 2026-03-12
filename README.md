@@ -4,15 +4,15 @@ A collection of [Model Context Protocol (MCP)](https://modelcontextprotocol.io) 
 
 ## Servers
 
-| Server | Status | Description |
-|--------|--------|-------------|
-| [Apple Notes](#apple-notes) | Done | Read, create, update, move, and delete notes and folders |
-| [Apple Messages](#apple-messages) | Done | Read message history, search conversations, and send messages |
-| [Apple Contacts](#apple-contacts) | Done | Manage contacts, groups, and contact details |
-| [Apple Mail](#apple-mail) | Done | Read, send, search, flag, and manage email |
-| [Apple Reminders](#apple-reminders) | Done | Create, update, complete, and manage reminders and lists |
-| [Apple Calendar](#apple-calendar) | Done | Create, update, and manage calendar events |
-| [Apple Maps](#apple-maps) | Done | Search locations, get directions, and drop pins (visual only — limited by Apple's automation support) |
+| Server | NPM Package | Description |
+|--------|-------------|-------------|
+| [Apple Notes](#apple-notes) | [![npm](https://img.shields.io/npm/v/@griches/apple-notes-mcp)](https://www.npmjs.com/package/@griches/apple-notes-mcp) | Read, create, update, move, and delete notes and folders |
+| [Apple Messages](#apple-messages) | [![npm](https://img.shields.io/npm/v/@griches/apple-messages-mcp)](https://www.npmjs.com/package/@griches/apple-messages-mcp) | Read message history, search conversations, and send messages |
+| [Apple Contacts](#apple-contacts) | [![npm](https://img.shields.io/npm/v/@griches/apple-contacts-mcp)](https://www.npmjs.com/package/@griches/apple-contacts-mcp) | Manage contacts, groups, and contact details |
+| [Apple Mail](#apple-mail) | [![npm](https://img.shields.io/npm/v/@griches/apple-mail-mcp)](https://www.npmjs.com/package/@griches/apple-mail-mcp) | Read, send, search, flag, and manage email |
+| [Apple Reminders](#apple-reminders) | [![npm](https://img.shields.io/npm/v/@griches/apple-reminders-mcp)](https://www.npmjs.com/package/@griches/apple-reminders-mcp) | Create, update, complete, and manage reminders and lists |
+| [Apple Calendar](#apple-calendar) | [![npm](https://img.shields.io/npm/v/@griches/apple-calendar-mcp)](https://www.npmjs.com/package/@griches/apple-calendar-mcp) | Create, update, and manage calendar events |
+| [Apple Maps](#apple-maps) | [![npm](https://img.shields.io/npm/v/@griches/apple-maps-mcp)](https://www.npmjs.com/package/@griches/apple-maps-mcp) | Search locations, get directions, and drop pins (visual only — limited by Apple's automation support) |
 
 ## Requirements
 
@@ -64,9 +64,9 @@ claude mcp add apple-messages -- npx @griches/apple-messages-mcp --confirm-destr
 | Reminders | `delete_reminder`, `delete_list` |
 | Calendar | `delete_event` |
 
-## Quick Start
+## Installation
 
-No cloning or building required — install and run directly with `npx`:
+All servers are published on [npm](https://www.npmjs.com/search?q=%40griches%2Fapple) under the `@griches` scope. No cloning or building required — install and run directly with `npx`:
 
 ```bash
 # Apple Notes
