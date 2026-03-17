@@ -87,6 +87,12 @@ func eventToJSON(_ event: EKEvent, includeDetails: Bool = false) -> String {
         fields.append("\"description\":\(jsonStringOrNull(event.notes))")
         fields.append("\"url\":\(jsonStringOrNull(event.url?.absoluteString))")
         fields.append("\"allDay\":\(event.isAllDay)")
+        let alarmStrs: [String] = (event.alarms ?? []).compactMap { alarm in
+            guard alarm.absoluteDate == nil else { return nil } // skip absolute-date alarms
+            let offsetMinutes = Int(-alarm.relativeOffset / 60)
+            return "{\"offsetMinutes\":\(offsetMinutes)}"
+        }
+        fields.append("\"alerts\":[\(alarmStrs.joined(separator: ","))]")
     }
 
     return "{\(fields.joined(separator: ","))}"

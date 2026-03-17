@@ -16,10 +16,10 @@ A collection of [Model Context Protocol (MCP)](https://modelcontextprotocol.io) 
 
 ## Requirements
 
-- **macOS** (uses AppleScript and macOS-specific APIs)
+- **macOS 13+**
 - **Node.js** 18+ (22+ for Apple Messages)
 - **Full Disk Access** granted to your terminal app (System Settings > Privacy & Security > Full Disk Access) — required for reading the Messages database
-- **The associated Apple app must be running** — each MCP server communicates with its corresponding app via AppleScript, so the app (e.g. Contacts, Mail, Notes) needs to be open for the server to function
+- **The associated Apple app must be running** for AppleScript-based servers (Notes, Contacts, Mail, Messages, Maps) — these communicate via AppleScript so the app needs to be open. Calendar and Reminders use EventKit directly and do not require the app to be open.
 
 ## Safety Modes
 
@@ -298,7 +298,7 @@ An MCP server that interacts with Apple Contacts via AppleScript.
 
 ## Apple Reminders
 
-An MCP server that interacts with Apple Reminders via AppleScript.
+An MCP server that interacts with Apple Reminders via EventKit — fast, reliable, and no dependency on the Reminders app being open.
 
 ### Tools
 
@@ -306,13 +306,13 @@ An MCP server that interacts with Apple Reminders via AppleScript.
 |------|-------------|
 | `list_lists` | List all reminder lists |
 | `create_list` | Create a new reminder list |
-| `list_reminders` | List reminders in a list (optionally include completed) |
-| `get_reminder` | Get full details of a reminder by name |
+| `list_reminders` | List reminders with a due date in a list (optionally include completed) |
+| `get_reminder` | Get full details of a reminder by name or id |
 | `create_reminder` | Create a new reminder with optional due date, notes, and priority |
-| `update_reminder` | Update an existing reminder's details |
-| `complete_reminder` | Mark a reminder as completed |
-| `uncomplete_reminder` | Mark a completed reminder as incomplete |
-| `delete_reminder` | Delete a reminder |
+| `update_reminder` | Update an existing reminder's details (by name or id) |
+| `complete_reminder` | Mark a reminder as completed (by name or id) |
+| `uncomplete_reminder` | Mark a completed reminder as incomplete (by name or id) |
+| `delete_reminder` | Delete a reminder (by name or id) |
 | `delete_list` | Delete a reminder list and all its reminders |
 | `search_reminders` | Search reminders by name across lists |
 
@@ -327,12 +327,12 @@ An MCP server that interacts with Apple Reminders via AppleScript.
 
 ## Apple Calendar
 
-An MCP server that interacts with Apple Calendar. Read operations use a compiled Swift EventKit binary for fast access (~0.1s vs 50-140s via AppleScript). Write operations use AppleScript.
+An MCP server that interacts with Apple Calendar via EventKit — fast, reliable, and no dependency on the Calendar app being open for reads. Write operations (create, update, delete) use AppleScript.
 
 ### Permissions
 
-- **Calendar access**: macOS will prompt you to grant calendar access the first time a read operation is used (System Settings > Privacy & Security > Calendars)
-- **Creating/deleting events**: macOS will prompt you to allow your terminal app to control the Calendar app via AppleScript
+- **Calendar access**: macOS will prompt you to grant calendar access the first time the server runs (System Settings > Privacy & Security > Calendars)
+- **Creating/updating/deleting events**: macOS will prompt you to allow your terminal app to control the Calendar app via AppleScript
 
 ### Tools
 
@@ -341,9 +341,9 @@ An MCP server that interacts with Apple Calendar. Read operations use a compiled
 | `list_calendars` | List all calendars |
 | `list_all_events` | List events across all calendars within a date range |
 | `list_events` | List events in a specific calendar within a date range |
-| `get_event` | Get full details of an event by summary/title |
-| `create_event` | Create a new event with date, time, location, and description |
-| `update_event` | Update an existing event's details |
+| `get_event` | Get full details of an event by summary/title, including alerts |
+| `create_event` | Create a new event with date, time, location, description, and optional alerts |
+| `update_event` | Update an existing event's details, including alerts |
 | `delete_event` | Delete an event by summary/title |
 | `search_events` | Search events by summary/title across calendars |
 
@@ -352,6 +352,8 @@ An MCP server that interacts with Apple Calendar. Read operations use a compiled
 - "List my calendars"
 - "Show events in my Work calendar for next week"
 - "Create a meeting tomorrow at 2pm in my Work calendar"
+- "Create a dentist appointment on Friday at 10am with an alert 2 hours before"
+- "Add a 30-minute alert to my Team Standup event"
 - "Search for events about standup"
 
 ---
@@ -390,7 +392,7 @@ An MCP server that interacts with Apple Mail via AppleScript.
 | Tool | Description |
 |------|-------------|
 | `list_mailboxes` | List all mailboxes across accounts with unread counts |
-| `list_messages` | List recent messages in a mailbox |
+| `list_messages` | List recent messages in a mailbox, optionally filtered to unread only |
 | `get_message` | Get the full content of an email by ID |
 | `search_messages` | Search emails by subject or sender across mailboxes |
 | `send_email` | Send an email with optional CC/BCC (supports multiple recipients) |
@@ -404,6 +406,7 @@ An MCP server that interacts with Apple Mail via AppleScript.
 
 - "How many unread emails do I have?"
 - "Show my recent emails in INBOX"
+- "Show my unread emails in INBOX"
 - "Search my email for invoices"
 - "Send an email to bob@example.com about the meeting"
 

@@ -1,6 +1,6 @@
 # @griches/apple-reminders-mcp
 
-An [MCP](https://modelcontextprotocol.io) server that gives AI assistants access to Apple Reminders on macOS via AppleScript.
+An [MCP](https://modelcontextprotocol.io) server that gives AI assistants access to Apple Reminders on macOS via EventKit — fast, reliable, and no dependency on the Reminders app being open.
 
 ## Quick Start
 
@@ -14,13 +14,13 @@ npx @griches/apple-reminders-mcp
 |------|-------------|
 | `list_lists` | List all reminder lists |
 | `create_list` | Create a new reminder list |
-| `list_reminders` | List reminders in a list (optionally include completed) |
-| `get_reminder` | Get full details of a reminder by name |
+| `list_reminders` | List reminders with a due date in a list (optionally include completed) |
+| `get_reminder` | Get full details of a reminder by name or id |
 | `create_reminder` | Create a new reminder with optional due date, notes, and priority |
-| `update_reminder` | Update an existing reminder's details |
-| `complete_reminder` | Mark a reminder as completed |
-| `uncomplete_reminder` | Mark a completed reminder as incomplete |
-| `delete_reminder` | Delete a reminder |
+| `update_reminder` | Update an existing reminder's details (by name or id) |
+| `complete_reminder` | Mark a reminder as completed (by name or id) |
+| `uncomplete_reminder` | Mark a completed reminder as incomplete (by name or id) |
+| `delete_reminder` | Delete a reminder (by name or id) |
 | `delete_list` | Delete a reminder list and all its reminders |
 | `search_reminders` | Search reminders by name across lists |
 
@@ -49,7 +49,7 @@ Add to your `claude_desktop_config.json`:
 
 ## Requirements
 
-- **macOS** (uses AppleScript)
+- **macOS 13+**
 - **Node.js** 18+
 
 ## License

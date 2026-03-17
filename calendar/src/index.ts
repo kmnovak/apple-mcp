@@ -104,14 +104,18 @@ server.registerTool(
       location: z.string().optional().describe("Location of the event"),
       description: z.string().optional().describe("Description or notes for the event"),
       all_day: z.boolean().optional().describe("Whether this is an all-day event"),
+      alert_minutes: z.union([z.number(), z.array(z.number())]).optional().describe("Minutes before event to send an alert, e.g. 30 for 30 min before, or [30, 120] for multiple alerts"),
     }),
   },
-  async ({ calendar, summary, start_date, end_date, location, description, all_day }) => {
+  async ({ calendar, summary, start_date, end_date, location, description, all_day, alert_minutes }) => {
     try {
+      const alertMinutes = alert_minutes === undefined ? undefined
+        : Array.isArray(alert_minutes) ? alert_minutes : [alert_minutes];
       const result = await applescript.createEvent(calendar, summary, start_date, end_date, {
         location,
         description,
         allDay: all_day,
+        alertMinutes,
       });
       return { content: [{ type: "text", text: result }] };
     } catch (err) {
@@ -134,10 +138,13 @@ server.registerTool(
       location: z.string().optional().describe("New location"),
       description: z.string().optional().describe("New description or notes"),
       all_day: z.boolean().optional().describe("Whether this is an all-day event"),
+      alert_minutes: z.union([z.number(), z.array(z.number())]).optional().describe("Replace all alerts with these minutes-before values, e.g. 30 or [30, 120]. Pass an empty array [] to remove all alerts. Omit to leave alerts unchanged."),
     }),
   },
-  async ({ summary, calendar, new_summary, start_date, end_date, location, description, all_day }) => {
+  async ({ summary, calendar, new_summary, start_date, end_date, location, description, all_day, alert_minutes }) => {
     try {
+      const alertMinutes = alert_minutes === undefined ? undefined
+        : Array.isArray(alert_minutes) ? alert_minutes : [alert_minutes];
       const result = await applescript.updateEvent(summary, calendar, {
         newSummary: new_summary,
         startDate: start_date,
@@ -145,6 +152,7 @@ server.registerTool(
         location,
         description,
         allDay: all_day,
+        alertMinutes,
       });
       return { content: [{ type: "text", text: result }] };
     } catch (err) {

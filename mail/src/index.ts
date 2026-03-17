@@ -30,16 +30,17 @@ server.registerTool(
 server.registerTool(
   "list_messages",
   {
-    description: "List recent messages in a mailbox",
+    description: "List recent messages in a mailbox, optionally filtered to unread only",
     inputSchema: z.object({
       mailbox: z.string().describe("Name of the mailbox (e.g. 'INBOX')"),
       account: z.string().describe("Name of the email account"),
       limit: z.number().optional().describe("Maximum number of messages to return (default 25)"),
+      unread_only: z.boolean().optional().describe("When true, only return unread messages"),
     }),
   },
-  async ({ mailbox, account, limit }) => {
+  async ({ mailbox, account, limit, unread_only }) => {
     try {
-      const messages = await applescript.listMessages(mailbox, account, limit);
+      const messages = await applescript.listMessages(mailbox, account, limit, unread_only);
       return { content: [{ type: "text", text: JSON.stringify(messages, null, 2) }] };
     } catch (err) {
       return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };

@@ -50,12 +50,33 @@ end tell`;
 export async function listMessages(
   mailboxName: string,
   accountName: string,
-  limit?: number
+  limit?: number,
+  unreadOnly?: boolean
 ): Promise<{ id: number; subject: string; sender: string; date: string; isRead: boolean }[]> {
   const safeMb = sanitize(mailboxName);
   const safeAcct = sanitize(accountName);
   const maxMessages = limit || 25;
-  const script = `
+
+  // When filtering by unread, `whose` returns a runtime list which doesn't support
+  // bulk property access. We use a repeat loop in that case.
+  const script = unreadOnly
+    ? `
+tell application "Mail"
+  set mb to mailbox "${safeMb}" of account "${safeAcct}"
+  set targetMsgs to messages of mb whose read status is false
+  set msgCount to count of targetMsgs
+  set maxCount to ${maxMessages}
+  if msgCount < maxCount then set maxCount to msgCount
+  if maxCount is 0 then return ""
+  set msgList to {}
+  repeat with i from 1 to maxCount
+    set m to item i of targetMsgs
+    set end of msgList to (id of m as text) & "${FIELD_DELIM}" & (subject of m) & "${FIELD_DELIM}" & (sender of m) & "${FIELD_DELIM}" & (date sent of m as text) & "${FIELD_DELIM}" & (read status of m as text)
+  end repeat
+  set AppleScript's text item delimiters to "${RECORD_DELIM}"
+  return msgList as text
+end tell`
+    : `
 tell application "Mail"
   set mb to mailbox "${safeMb}" of account "${safeAcct}"
   set msgCount to count of messages of mb
