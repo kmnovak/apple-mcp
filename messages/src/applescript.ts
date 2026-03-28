@@ -31,14 +31,26 @@ export function runAppleScript(script: string): Promise<string> {
 
 /**
  * Mark a Messages thread as read by opening it via AppleScript.
+ * Uses explicit iteration rather than a `whose` filter, which is unreliable
+ * for chat collections in newer macOS versions.
  * @param chatId - chat identifier (e.g. iMessage;-;+1234567890)
  */
 export async function markThreadAsRead(chatId: string): Promise<string> {
   const safeChatId = sanitize(chatId);
   const script = `
 tell application "Messages"
-  set targetChat to first chat whose id = "${safeChatId}"
-  open targetChat
+  activate
+  set foundChat to missing value
+  repeat with c in (every chat)
+    if (id of c) = "${safeChatId}" then
+      set foundChat to c
+      exit repeat
+    end if
+  end repeat
+  if foundChat is missing value then
+    error "Chat not found: ${safeChatId}"
+  end if
+  open foundChat
 end tell
 return "Marked chat ${safeChatId} as read"`;
   return runAppleScript(script);
@@ -46,14 +58,25 @@ return "Marked chat ${safeChatId} as read"`;
 
 /**
  * Delete a Messages thread via AppleScript.
+ * Uses explicit iteration rather than a `whose` filter, which is unreliable
+ * for chat collections in newer macOS versions.
  * @param chatId - chat identifier (e.g. iMessage;-;+1234567890)
  */
 export async function deleteThread(chatId: string): Promise<string> {
   const safeChatId = sanitize(chatId);
   const script = `
 tell application "Messages"
-  set targetChat to first chat whose id = "${safeChatId}"
-  delete targetChat
+  set foundChat to missing value
+  repeat with c in (every chat)
+    if (id of c) = "${safeChatId}" then
+      set foundChat to c
+      exit repeat
+    end if
+  end repeat
+  if foundChat is missing value then
+    error "Chat not found: ${safeChatId}"
+  end if
+  delete foundChat
 end tell
 return "Deleted chat ${safeChatId}"`;
   return runAppleScript(script);
