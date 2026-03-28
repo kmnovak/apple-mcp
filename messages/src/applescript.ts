@@ -30,25 +30,38 @@ export function runAppleScript(script: string): Promise<string> {
 }
 
 /**
- * Find a chat by its database chat_identifier, falling back to participant handle matching.
+ * Find a chat by its database chat_identifier, trying multiple service prefixes
+ * before falling back to participant handle matching.
  *
- * The AppleScript `chat.id` property does not always match the SQLite chat_identifier,
- * so we try two passes:
- *   1. Exact id match (handles group chats and cases where formats align)
- *   2. Participant handle match — strips any "service;type;" prefix from the chatId to get
- *      the bare phone/email, then looks for a 1:1 chat where a participant's id matches.
+ * Pass 1: tries the exact id, then SMS;-;, iMessage;-;, and any;-; prefixed forms.
+ *   macOS may register a chat as any;-;+1234567890 even when the SQLite
+ *   chat_identifier is just +1234567890.
+ * Pass 2: participant handle match — last resort for edge cases; may silently
+ *   fail for SMS chats on macOS Ventura+ if `participants of c` throws.
  *
  * Returns an AppleScript snippet (no surrounding tell block) that sets `foundChat`.
  */
 function findChatScript(safeChatId: string, safeHandle: string): string {
   return `
   set foundChat to missing value
-  repeat with c in (every chat)
-    if (id of c) = "${safeChatId}" then
-      set foundChat to c
-      exit repeat
-    end if
-  end repeat
+  try
+    set foundChat to first chat whose id = "${safeChatId}"
+  end try
+  if foundChat is missing value then
+    try
+      set foundChat to first chat whose id = "SMS;-;${safeHandle}"
+    end try
+  end if
+  if foundChat is missing value then
+    try
+      set foundChat to first chat whose id = "iMessage;-;${safeHandle}"
+    end try
+  end if
+  if foundChat is missing value then
+    try
+      set foundChat to first chat whose id = "any;-;${safeHandle}"
+    end try
+  end if
   if foundChat is missing value then
     repeat with c in (every chat)
       try
@@ -73,7 +86,7 @@ function findChatScript(safeChatId: string, safeHandle: string): string {
  */
 export async function markThreadAsRead(chatId: string): Promise<string> {
   const safeChatId = sanitize(chatId);
-  // Strip "service;type;" prefix to get the bare handle for participant fallback
+  // Strip "service;type;" prefix to get the bare handle for service-prefix fallbacks
   // e.g. "iMessage;-;+1234567890" → "+1234567890", "+1234567890" → "+1234567890"
   const handle = chatId.includes(";") ? chatId.split(";").pop()! : chatId;
   const safeHandle = sanitize(handle);
