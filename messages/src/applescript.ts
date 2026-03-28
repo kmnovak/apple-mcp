@@ -81,26 +81,6 @@ function findChatScript(safeChatId: string, safeHandle: string): string {
 }
 
 /**
- * Mark a Messages thread as read by opening it via AppleScript.
- * @param chatId - chat identifier (e.g. iMessage;-;+1234567890 or +1234567890)
- */
-export async function markThreadAsRead(chatId: string): Promise<string> {
-  const safeChatId = sanitize(chatId);
-  // Strip "service;type;" prefix to get the bare handle for service-prefix fallbacks
-  // e.g. "iMessage;-;+1234567890" → "+1234567890", "+1234567890" → "+1234567890"
-  const handle = chatId.includes(";") ? chatId.split(";").pop()! : chatId;
-  const safeHandle = sanitize(handle);
-  const script = `
-tell application "Messages"
-  activate
-  ${findChatScript(safeChatId, safeHandle)}
-  open foundChat
-end tell
-return "Marked chat ${safeChatId} as read"`;
-  return runAppleScript(script);
-}
-
-/**
  * Delete a Messages thread via AppleScript.
  * @param chatId - chat identifier (e.g. iMessage;-;+1234567890 or +1234567890)
  */
