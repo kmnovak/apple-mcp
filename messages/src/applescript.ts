@@ -30,16 +30,18 @@ export function runAppleScript(script: string): Promise<string> {
 }
 
 /**
- * Mark a Messages thread as read by opening it via AppleScript.
- * Uses explicit iteration rather than a `whose` filter, which is unreliable
- * for chat collections in newer macOS versions.
- * @param chatId - chat identifier (e.g. iMessage;-;+1234567890)
+ * Find a chat by its database chat_identifier, falling back to participant handle matching.
+ *
+ * The AppleScript `chat.id` property does not always match the SQLite chat_identifier,
+ * so we try two passes:
+ *   1. Exact id match (handles group chats and cases where formats align)
+ *   2. Participant handle match — strips any "service;type;" prefix from the chatId to get
+ *      the bare phone/email, then looks for a 1:1 chat where a participant's id matches.
+ *
+ * Returns an AppleScript snippet (no surrounding tell block) that sets `foundChat`.
  */
-export async function markThreadAsRead(chatId: string): Promise<string> {
-  const safeChatId = sanitize(chatId);
-  const script = `
-tell application "Messages"
-  activate
+function findChatScript(safeChatId: string, safeHandle: string): string {
+  return `
   set foundChat to missing value
   repeat with c in (every chat)
     if (id of c) = "${safeChatId}" then
@@ -48,8 +50,37 @@ tell application "Messages"
     end if
   end repeat
   if foundChat is missing value then
-    error "Chat not found: ${safeChatId}"
+    repeat with c in (every chat)
+      try
+        repeat with p in (participants of c)
+          if (id of p) = "${safeHandle}" then
+            set foundChat to c
+            exit repeat
+          end if
+        end repeat
+      end try
+      if foundChat is not missing value then exit repeat
+    end repeat
   end if
+  if foundChat is missing value then
+    error "Chat not found: ${safeChatId}"
+  end if`;
+}
+
+/**
+ * Mark a Messages thread as read by opening it via AppleScript.
+ * @param chatId - chat identifier (e.g. iMessage;-;+1234567890 or +1234567890)
+ */
+export async function markThreadAsRead(chatId: string): Promise<string> {
+  const safeChatId = sanitize(chatId);
+  // Strip "service;type;" prefix to get the bare handle for participant fallback
+  // e.g. "iMessage;-;+1234567890" → "+1234567890", "+1234567890" → "+1234567890"
+  const handle = chatId.includes(";") ? chatId.split(";").pop()! : chatId;
+  const safeHandle = sanitize(handle);
+  const script = `
+tell application "Messages"
+  activate
+  ${findChatScript(safeChatId, safeHandle)}
   open foundChat
 end tell
 return "Marked chat ${safeChatId} as read"`;
@@ -58,24 +89,15 @@ return "Marked chat ${safeChatId} as read"`;
 
 /**
  * Delete a Messages thread via AppleScript.
- * Uses explicit iteration rather than a `whose` filter, which is unreliable
- * for chat collections in newer macOS versions.
- * @param chatId - chat identifier (e.g. iMessage;-;+1234567890)
+ * @param chatId - chat identifier (e.g. iMessage;-;+1234567890 or +1234567890)
  */
 export async function deleteThread(chatId: string): Promise<string> {
   const safeChatId = sanitize(chatId);
+  const handle = chatId.includes(";") ? chatId.split(";").pop()! : chatId;
+  const safeHandle = sanitize(handle);
   const script = `
 tell application "Messages"
-  set foundChat to missing value
-  repeat with c in (every chat)
-    if (id of c) = "${safeChatId}" then
-      set foundChat to c
-      exit repeat
-    end if
-  end repeat
-  if foundChat is missing value then
-    error "Chat not found: ${safeChatId}"
-  end if
+  ${findChatScript(safeChatId, safeHandle)}
   delete foundChat
 end tell
 return "Deleted chat ${safeChatId}"`;
