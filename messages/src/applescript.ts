@@ -30,6 +30,36 @@ export function runAppleScript(script: string): Promise<string> {
 }
 
 /**
+ * Mark a Messages thread as read by opening it via AppleScript.
+ * @param chatId - chat identifier (e.g. iMessage;-;+1234567890)
+ */
+export async function markThreadAsRead(chatId: string): Promise<string> {
+  const safeChatId = sanitize(chatId);
+  const script = `
+tell application "Messages"
+  set targetChat to first chat whose id = "${safeChatId}"
+  open targetChat
+end tell
+return "Marked chat ${safeChatId} as read"`;
+  return runAppleScript(script);
+}
+
+/**
+ * Delete a Messages thread via AppleScript.
+ * @param chatId - chat identifier (e.g. iMessage;-;+1234567890)
+ */
+export async function deleteThread(chatId: string): Promise<string> {
+  const safeChatId = sanitize(chatId);
+  const script = `
+tell application "Messages"
+  set targetChat to first chat whose id = "${safeChatId}"
+  delete targetChat
+end tell
+return "Deleted chat ${safeChatId}"`;
+  return runAppleScript(script);
+}
+
+/**
  * Send a message via Apple Messages using AppleScript.
  * @param to - phone number or email address of the recipient
  * @param text - message text to send
