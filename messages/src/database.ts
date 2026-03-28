@@ -92,6 +92,39 @@ export function openDb(): DatabaseSync {
   return new DatabaseSync(DB_PATH, { readOnly: true });
 }
 
+/**
+ * Open chat.db in read-write mode and return the database handle.
+ */
+function openDbWrite(): DatabaseSync {
+  return new DatabaseSync(DB_PATH);
+}
+
+/**
+ * Mark all unread incoming messages in a chat as read by writing directly to chat.db.
+ * @param chatId - chat identifier in any format (e.g. "any;-;+1234567890" or "+1234567890")
+ * @returns number of message rows updated
+ */
+export function markChatAsRead(chatId: string): number {
+  // Strip service prefix (e.g. "any;-;+12028500713" → "+12028500713")
+  const identifier = chatId.includes(";") ? chatId.split(";").pop()! : chatId;
+  const db = openDbWrite();
+  try {
+    const result = db.prepare(`
+      UPDATE message
+      SET is_read = 1
+      WHERE ROWID IN (
+        SELECT message_id FROM chat_message_join
+        WHERE chat_id = (SELECT ROWID FROM chat WHERE chat_identifier = ?)
+      )
+      AND is_from_me = 0
+      AND is_read = 0
+    `).run(identifier) as { changes: number };
+    return result.changes;
+  } finally {
+    db.close();
+  }
+}
+
 export interface Chat {
   chat_id: string;
   display_name: string | null;

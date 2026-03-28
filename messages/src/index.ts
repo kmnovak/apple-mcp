@@ -124,10 +124,10 @@ function buildServer(): McpServer {
         chat_id: z.string().describe("Chat identifier (e.g. iMessage;-;+1234567890)"),
       }),
     },
-    async ({ chat_id }) => {
+    ({ chat_id }) => {
       try {
-        const result = await applescript.markThreadAsRead(chat_id);
-        return { content: [{ type: "text", text: result }] };
+        const changes = database.markChatAsRead(chat_id);
+        return { content: [{ type: "text", text: `Marked ${changes} message(s) as read in chat ${chat_id}` }] };
       } catch (err) {
         return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };
       }
