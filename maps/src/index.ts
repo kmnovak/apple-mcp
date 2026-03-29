@@ -171,6 +171,7 @@ async function main() {
         return;
       }
       if (req.url === "/mcp" && req.method === "POST") {
+        req.headers["accept"] = "application/json, text/event-stream";
         const body = await readBody(req);
         const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
         const mcpServer = buildServer();
