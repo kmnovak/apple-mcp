@@ -351,8 +351,6 @@ async function main() {
       process.exit(1);
     }
 
-    const mcpServer = buildServer();
-
     const httpServer = createServer(async (req, res) => {
       if (!checkAuth(req, authToken)) {
         send401(res);
@@ -362,6 +360,7 @@ async function main() {
         req.headers["accept"] = "application/json, text/event-stream";
         const body = await readBody(req);
         const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+        const mcpServer = buildServer();
         await mcpServer.connect(transport);
         await transport.handleRequest(req, res, body);
         res.on("finish", () => transport.close());
