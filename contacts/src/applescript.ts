@@ -1,4 +1,7 @@
 import { execFile } from "node:child_process";
+import { readdir } from "node:fs/promises";
+import { join } from "node:path";
+import { homedir } from "node:os";
 
 export function sanitize(input: string): string {
   return input
@@ -23,6 +26,90 @@ export function runAppleScript(script: string): Promise<string> {
 
 const FIELD_DELIM = "|||";
 const RECORD_DELIM = "<<<>>>";
+
+type ContactCard = {
+  name: string;
+  id: string;
+  emails: string[];
+  phones: string[];
+  organization: string | null;
+  jobTitle: string | null;
+  note: string | null;
+  addresses: string[];
+};
+
+let cachedDbPath: string | null = null;
+
+async function findAddressBookDb(): Promise<string> {
+  if (cachedDbPath) return cachedDbPath;
+  const sourcesDir = join(homedir(), "Library", "Application Support", "AddressBook", "Sources");
+  const entries = await readdir(sourcesDir);
+  for (const entry of entries) {
+    const candidate = join(sourcesDir, entry, "AddressBook-v22.abcddb");
+    try {
+      await readdir(join(sourcesDir, entry));
+      cachedDbPath = candidate;
+      return candidate;
+    } catch {
+      // skip
+    }
+  }
+  throw new Error("AddressBook SQLite database not found");
+}
+
+function runSqlite(dbPath: string, sql: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = execFile("sqlite3", ["-separator", "\x1f", dbPath], { maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
+      if (error) {
+        reject(new Error(`SQLite error: ${stderr || error.message}`));
+        return;
+      }
+      resolve(stdout.trimEnd());
+    });
+    child.stdin!.end(sql);
+  });
+}
+
+const CONTACT_CARD_SQL = `
+SELECT
+  r.ZUNIQUEID,
+  coalesce(r.ZFIRSTNAME, '') || ' ' || coalesce(r.ZLASTNAME, ''),
+  coalesce(r.ZORGANIZATION, ''),
+  coalesce(r.ZJOBTITLE, ''),
+  coalesce(group_concat(DISTINCT p.ZFULLNUMBER), ''),
+  coalesce(group_concat(DISTINCT e.ZADDRESS), ''),
+  coalesce(n.ZTEXT, ''),
+  coalesce((SELECT group_concat(addr, '|||') FROM (SELECT DISTINCT trim(coalesce(a2.ZSTREET,'') || ', ' || coalesce(a2.ZCITY,'') || ', ' || coalesce(a2.ZSTATE,a2.ZREGION,'') || ', ' || coalesce(a2.ZCOUNTRYNAME,'')) as addr FROM ZABCDPOSTALADDRESS a2 WHERE a2.ZOWNER = r.Z_PK)), '')
+FROM ZABCDRECORD r
+LEFT JOIN ZABCDPHONENUMBER p ON p.ZOWNER = r.Z_PK
+LEFT JOIN ZABCDEMAILADDRESS e ON e.ZOWNER = r.Z_PK
+LEFT JOIN ZABCDNOTE n ON n.ZCONTACT = r.Z_PK
+LEFT JOIN ZABCDPOSTALADDRESS a ON a.ZOWNER = r.Z_PK`;
+
+const CONTACT_CARD_GROUP_BY = `GROUP BY r.Z_PK`;
+
+function parseContactRow(row: string): ContactCard {
+  const cols = row.split("\x1f");
+  const name = cols[1]?.trim() || "";
+  return {
+    name,
+    id: cols[0]?.trim() || "",
+    organization: cols[2]?.trim() || null,
+    jobTitle: cols[3]?.trim() || null,
+    phones: cols[4] ? cols[4].split(",").map((s) => s.trim()).filter(Boolean) : [],
+    emails: cols[5] ? cols[5].split(",").map((s) => s.trim()).filter(Boolean) : [],
+    note: cols[6]?.trim() || null,
+    addresses: cols[7] ? cols[7].split("|||").map((s) => s.replace(/(^[, ]+|[, ]+$)/g, "").trim()).filter(Boolean) : [],
+  };
+}
+
+async function queryContacts(where: string): Promise<ContactCard[]> {
+  const db = await findAddressBookDb();
+  const sql = `${CONTACT_CARD_SQL} WHERE r.Z_ENT = 22 AND (${where}) ${CONTACT_CARD_GROUP_BY};`;
+  const raw = await runSqlite(db, sql);
+  if (!raw) return [];
+  return raw.split("\n").map(parseContactRow).filter((c) => c.id);
+}
 
 export async function listGroups(): Promise<{ name: string }[]> {
   const script = `
@@ -166,26 +253,32 @@ end tell`;
   };
 }
 
-export async function searchContacts(query: string): Promise<{ name: string; id: string }[]> {
-  const safeQuery = sanitize(query);
-  const script = `
-tell application "Contacts"
-  set results to {}
-  set matchedPeople to (every person whose name contains "${safeQuery}")
-  repeat with p in matchedPeople
-    set contactName to name of p
-    set contactId to id of p
-    set end of results to contactName & "${FIELD_DELIM}" & contactId
-  end repeat
-  set AppleScript's text item delimiters to "${RECORD_DELIM}"
-  return results as text
-end tell`;
-  const raw = await runAppleScript(script);
-  if (!raw) return [];
-  return raw.split(RECORD_DELIM).map((record) => {
-    const [name, id] = record.split(FIELD_DELIM).map((s) => s.trim());
-    return { name, id };
-  });
+
+export async function searchContacts(query: string): Promise<ContactCard[]> {
+  const safe = query.replace(/'/g, "''");
+  return queryContacts(`(r.ZFIRSTNAME LIKE '%${safe}%' OR r.ZLASTNAME LIKE '%${safe}%' OR r.ZORGANIZATION LIKE '%${safe}%')`);
+}
+
+export async function getContactByPhone(phone: string): Promise<ContactCard[]> {
+  const digits = phone.replace(/\D/g, "");
+  if (!digits) return [];
+  const safe = digits.replace(/'/g, "''");
+  const normalized = `replace(replace(replace(replace(replace(ZFULLNUMBER,' ',''),'-',''),'(',''),')',''),'+','')`;
+  let condition = `${normalized} LIKE '%${safe}%'`;
+  if (digits.length === 11 && digits.startsWith("1")) {
+    const tenDigit = digits.slice(1).replace(/'/g, "''");
+    condition += ` OR ${normalized} LIKE '%${tenDigit}%'`;
+  } else if (digits.length === 10) {
+    const elevenDigit = `1${safe}`;
+    condition += ` OR ${normalized} LIKE '%${elevenDigit}%'`;
+  }
+  return queryContacts(`r.Z_PK IN (SELECT ZOWNER FROM ZABCDPHONENUMBER WHERE ${condition})`);
+}
+
+export async function getContactByEmail(email: string): Promise<ContactCard[]> {
+  const safe = email.trim().toLowerCase().replace(/'/g, "''");
+  if (!safe) return [];
+  return queryContacts(`r.Z_PK IN (SELECT ZOWNER FROM ZABCDEMAILADDRESS WHERE lower(ZADDRESS) LIKE '%${safe}%')`);
 }
 
 export async function createContact(

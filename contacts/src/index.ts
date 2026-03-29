@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { createServer, IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod";
 import * as applescript from "./applescript.js";
 
 const readOnly = process.argv.includes("--read-only");
 const confirmDestructive = process.argv.includes("--confirm-destructive");
 
+function buildServer(): McpServer {
 const server = new McpServer({
   name: "apple-contacts",
   version: "1.0.0",
@@ -71,7 +74,7 @@ server.registerTool(
 server.registerTool(
   "search_contacts",
   {
-    description: "Search contacts by name",
+    description: "Search contacts by name and return full contact cards including emails, phones, organization, and addresses",
     inputSchema: z.object({
       query: z.string().describe("Text to search for in contact names"),
     }),
@@ -79,6 +82,44 @@ server.registerTool(
   async ({ query }) => {
     try {
       const results = await applescript.searchContacts(query);
+      return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+    } catch (err) {
+      return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };
+    }
+  }
+);
+
+// ---- find_contact_by_phone ----
+server.registerTool(
+  "find_contact_by_phone",
+  {
+    description: "Find contacts by phone number (partial match) and return full contact cards including emails, phones, organization, and addresses",
+    inputSchema: z.object({
+      phone: z.string().describe("Phone number or partial phone number to search for"),
+    }),
+  },
+  async ({ phone }) => {
+    try {
+      const results = await applescript.getContactByPhone(phone);
+      return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+    } catch (err) {
+      return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };
+    }
+  }
+);
+
+// ---- find_contact_by_email ----
+server.registerTool(
+  "find_contact_by_email",
+  {
+    description: "Find contacts by email address (partial match) and return full contact cards including emails, phones, organization, and addresses",
+    inputSchema: z.object({
+      email: z.string().describe("Email address or partial email address to search for"),
+    }),
+  },
+  async ({ email }) => {
+    try {
+      const results = await applescript.getContactByEmail(email);
       return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
     } catch (err) {
       return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };
@@ -260,11 +301,82 @@ if (!readOnly) {
   );
 }
 
+  return server;
+}
+
+function readBody(req: IncomingMessage): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk) => chunks.push(chunk));
+    req.on("end", () => {
+      try {
+        resolve(JSON.parse(Buffer.concat(chunks).toString()));
+      } catch {
+        resolve(undefined);
+      }
+    });
+    req.on("error", reject);
+  });
+}
+
+function checkAuth(req: IncomingMessage, authToken: string): boolean {
+  const header = req.headers["authorization"] ?? "";
+  return header === `Bearer ${authToken}`;
+}
+
+function send401(res: ServerResponse): void {
+  res.writeHead(401, { "Content-Type": "application/json" })
+    .end(JSON.stringify({ error: "Unauthorized" }));
+}
+
 // ---- Start server ----
 async function main() {
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-  console.error("Apple Contacts MCP server running on stdio");
+  const portArg = process.argv.indexOf("--port");
+  const port =
+    portArg !== -1
+      ? parseInt(process.argv[portArg + 1], 10)
+      : process.env.PORT
+        ? parseInt(process.env.PORT, 10)
+        : null;
+
+  const tokenArg = process.argv.indexOf("--auth-token");
+  const authToken =
+    tokenArg !== -1
+      ? process.argv[tokenArg + 1]
+      : (process.env.MCP_AUTH_TOKEN ?? null);
+
+  if (port !== null) {
+    if (!authToken) {
+      console.error("Error: --auth-token or MCP_AUTH_TOKEN is required in HTTP mode");
+      process.exit(1);
+    }
+
+    const mcpServer = buildServer();
+
+    const httpServer = createServer(async (req, res) => {
+      if (!checkAuth(req, authToken)) {
+        send401(res);
+        return;
+      }
+      if (req.url === "/mcp" && req.method === "POST") {
+        const body = await readBody(req);
+        const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+        await mcpServer.connect(transport);
+        await transport.handleRequest(req, res, body);
+        res.on("finish", () => transport.close());
+      } else {
+        res.writeHead(404).end();
+      }
+    });
+
+    httpServer.listen(port, () =>
+      console.error(`Apple Contacts MCP server listening on port ${port}`)
+    );
+  } else {
+    const transport = new StdioServerTransport();
+    await buildServer().connect(transport);
+    console.error("Apple Contacts MCP server running on stdio");
+  }
 }
 
 main().catch((err) => {

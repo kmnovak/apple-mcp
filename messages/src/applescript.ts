@@ -81,19 +81,64 @@ function findChatScript(safeChatId: string, safeHandle: string): string {
 }
 
 /**
- * Delete a Messages thread via AppleScript.
+ * Mark a Messages thread as read via AppleScript.
+ *
+ * The Messages AppleScript dictionary (sdef) does not expose a "mark as read"
+ * command or "unread count" property. The only mechanism available is to
+ * activate the Messages app and bring the target chat into focus — the OS marks
+ * it as read when the chat window becomes active, exactly as it does for a user.
+ *
+ * Direct SQLite writes to chat.db do not work: IMDPersistenceAgent holds
+ * exclusive WAL locks on chat.db-wal / chat.db-shm and reverts external writes.
+ *
  * @param chatId - chat identifier (e.g. iMessage;-;+1234567890 or +1234567890)
+ * @returns confirmation string
+ */
+export async function markChatAsRead(chatId: string): Promise<string> {
+  const handle = chatId.includes(";") ? chatId.split(";").pop()! : chatId;
+  const safeHandle = sanitize(handle);
+  // Open the chat via the messages:// URL scheme. This focuses the conversation
+  // in the Messages app, which causes imagent to mark all messages as read —
+  // the same action that happens when a user clicks on a chat.
+  // This is the only reliable mechanism: the Messages sdef exposes no mark-as-read
+  // command, and direct SQLite writes are reverted by IMDPersistenceAgent's WAL locks.
+  const script = `
+tell application "Messages" to activate
+open location "messages://${safeHandle}"
+return "Opened chat for ${safeHandle} in Messages to mark it as read"`;
+  return runAppleScript(script);
+}
+
+/**
+ * Delete a Messages thread via UI automation.
+ *
+ * The Messages AppleScript sdef `delete` verb fails with -10000 (AppleEvent handler
+ * failed) for chat objects. The only working approach is UI automation:
+ * 1. Open the chat via the messages:// URL scheme to bring it into focus.
+ * 2. Click "Delete Conversation…" from the Conversation menu.
+ * 3. Confirm the sheet dialog by clicking the "Delete" button.
+ *
+ * Requires Accessibility permission for the process invoking osascript
+ * (Claude.app must be listed in System Settings → Privacy & Security → Accessibility).
+ *
+ * @param chatId - chat identifier (e.g. iMessage;-;+1234567890 or +1234567890)
+ * @returns confirmation string
  */
 export async function deleteThread(chatId: string): Promise<string> {
-  const safeChatId = sanitize(chatId);
   const handle = chatId.includes(";") ? chatId.split(";").pop()! : chatId;
   const safeHandle = sanitize(handle);
   const script = `
-tell application "Messages"
-  ${findChatScript(safeChatId, safeHandle)}
-  delete foundChat
+tell application "Messages" to activate
+open location "messages://${safeHandle}"
+delay 1
+tell application "System Events"
+  tell process "Messages"
+    click menu item "Delete Conversation…" of menu "Conversation" of menu bar 1
+    delay 0.5
+    click button "Delete" of first sheet of front window
+  end tell
 end tell
-return "Deleted chat ${safeChatId}"`;
+return "Deleted conversation for ${safeHandle}"`;
   return runAppleScript(script);
 }
 

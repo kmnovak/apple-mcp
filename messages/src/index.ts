@@ -124,13 +124,79 @@ function buildServer(): McpServer {
         chat_id: z.string().describe("Chat identifier (e.g. iMessage;-;+1234567890)"),
       }),
     },
-    ({ chat_id }) => {
+    async ({ chat_id }) => {
       try {
-        const changes = database.markChatAsRead(chat_id);
-        return { content: [{ type: "text", text: `Marked ${changes} message(s) as read in chat ${chat_id}` }] };
+        const result = await applescript.markChatAsRead(chat_id);
+        return { content: [{ type: "text", text: result }] };
       } catch (err) {
         return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };
       }
+    }
+  );
+
+  // ---- diagnose_db_write ----
+  server.registerTool(
+    "diagnose_db_write",
+    {
+      description: "Diagnostic: test whether chat.db is readable/writable from this process and whether DB writes persist",
+      inputSchema: z.object({
+        chat_id: z.string().describe("Chat identifier to test with (e.g. iMessage;-;+1234567890)"),
+      }),
+    },
+    async ({ chat_id }) => {
+      const { DatabaseSync } = await import("node:sqlite");
+      const { homedir } = await import("node:os");
+      const { join } = await import("node:path");
+      const DB_PATH = join(homedir(), "Library", "Messages", "chat.db");
+      const identifier = chat_id.includes(";") ? chat_id.split(";").pop()! : chat_id;
+      const lines: string[] = [`DB_PATH: ${DB_PATH}`, `identifier: ${identifier}`];
+
+      // Step 1: Read-only open
+      try {
+        const ro = new DatabaseSync(DB_PATH, { readOnly: true });
+        const jm = ro.prepare("PRAGMA journal_mode").get() as { journal_mode: string };
+        lines.push(`[READ-ONLY] OK - journal_mode: ${jm.journal_mode}`);
+        const before = ro.prepare(`SELECT COUNT(*) as cnt FROM message WHERE ROWID IN (SELECT message_id FROM chat_message_join WHERE chat_id = (SELECT ROWID FROM chat WHERE chat_identifier = ?)) AND is_from_me = 0 AND is_read = 0`).get(identifier) as { cnt: number };
+        lines.push(`[READ-ONLY] unread_before: ${before.cnt}`);
+        ro.close();
+      } catch (e) {
+        lines.push(`[READ-ONLY] FAILED: ${(e as Error).message}`);
+        return { content: [{ type: "text", text: lines.join("\n") }] };
+      }
+
+      // Step 2: Read-write open + UPDATE
+      let changes = 0;
+      try {
+        const rw = new DatabaseSync(DB_PATH);
+        const jm = rw.prepare("PRAGMA journal_mode").get() as { journal_mode: string };
+        lines.push(`[READ-WRITE] OK - journal_mode: ${jm.journal_mode}`);
+        const bt = rw.prepare("PRAGMA busy_timeout").get() as { busy_timeout: number };
+        lines.push(`[READ-WRITE] busy_timeout: ${bt.busy_timeout}`);
+        rw.prepare("PRAGMA busy_timeout = 5000").run();
+        const result = rw.prepare(`UPDATE message SET is_read = 1 WHERE ROWID IN (SELECT message_id FROM chat_message_join WHERE chat_id = (SELECT ROWID FROM chat WHERE chat_identifier = ?)) AND is_from_me = 0 AND is_read = 0`).run(identifier) as { changes: number };
+        changes = result.changes;
+        lines.push(`[READ-WRITE] UPDATE changes: ${changes}`);
+        const after = rw.prepare(`SELECT COUNT(*) as cnt FROM message WHERE ROWID IN (SELECT message_id FROM chat_message_join WHERE chat_id = (SELECT ROWID FROM chat WHERE chat_identifier = ?)) AND is_from_me = 0 AND is_read = 0`).get(identifier) as { cnt: number };
+        lines.push(`[READ-WRITE] unread_after_write (same conn): ${after.cnt}`);
+        const ckpt = rw.prepare("PRAGMA wal_checkpoint(FULL)").get() as Record<string, unknown>;
+        lines.push(`[READ-WRITE] wal_checkpoint(FULL): ${JSON.stringify(ckpt)}`);
+        rw.close();
+      } catch (e) {
+        lines.push(`[READ-WRITE] FAILED: ${(e as Error).message}`);
+      }
+
+      // Step 3: Re-open read-only and verify persistence
+      try {
+        const verify = new DatabaseSync(DB_PATH, { readOnly: true });
+        const afterClose = verify.prepare(`SELECT COUNT(*) as cnt FROM message WHERE ROWID IN (SELECT message_id FROM chat_message_join WHERE chat_id = (SELECT ROWID FROM chat WHERE chat_identifier = ?)) AND is_from_me = 0 AND is_read = 0`).get(identifier) as { cnt: number };
+        lines.push(`[VERIFY] unread_after_close: ${afterClose.cnt}`);
+        lines.push(`[VERDICT] Write ${changes > 0 ? "made changes" : "made no changes"}; persisted=${changes > 0 && afterClose.cnt === 0 ? "YES" : "NO or unknown"}`);
+        verify.close();
+      } catch (e) {
+        lines.push(`[VERIFY] FAILED: ${(e as Error).message}`);
+      }
+
+      return { content: [{ type: "text", text: lines.join("\n") }] };
     }
   );
 
