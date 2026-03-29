@@ -263,7 +263,7 @@ export async function getContactByPhone(phone: string): Promise<ContactCard[]> {
   const digits = phone.replace(/\D/g, "");
   if (!digits) return [];
   const safe = digits.replace(/'/g, "''");
-  const normalized = `replace(replace(replace(replace(replace(ZFULLNUMBER,' ',''),'-',''),'(',''),')',''),'+','')`;
+  const normalized = `replace(replace(replace(replace(replace(replace(ZFULLNUMBER,' ',''),'-',''),'(',''),')',''),'+',''),'.','')`;
   let condition = `${normalized} LIKE '%${safe}%'`;
   if (digits.length === 11 && digits.startsWith("1")) {
     const tenDigit = digits.slice(1).replace(/'/g, "''");
