@@ -8,7 +8,19 @@ import {
   getChatMessages,
   searchMessages,
   getChatParticipants,
+  getChatReadState,
 } from "../src/database.ts";
+
+const canReadMessagesDb = (() => {
+  try {
+    listChats(1);
+    return true;
+  } catch {
+    return false;
+  }
+})();
+
+const describeDbIntegration = canReadMessagesDb ? describe : describe.skip;
 
 // ---------------------------------------------------------------------------
 // Unit tests
@@ -113,7 +125,7 @@ describe("getMessageText", () => {
 // Integration tests (read-only against real chat.db)
 // ---------------------------------------------------------------------------
 
-describe("listChats (integration)", () => {
+describeDbIntegration("listChats (integration)", () => {
   it("returns an array", () => {
     const chats = listChats(5);
     assert.ok(Array.isArray(chats));
@@ -137,7 +149,7 @@ describe("listChats (integration)", () => {
   });
 });
 
-describe("getChatMessages (integration)", () => {
+describeDbIntegration("getChatMessages (integration)", () => {
   it("returns messages for a valid chat", () => {
     const chats = listChats(1);
     if (chats.length > 0) {
@@ -162,7 +174,7 @@ describe("getChatMessages (integration)", () => {
   });
 });
 
-describe("searchMessages (integration)", () => {
+describeDbIntegration("searchMessages (integration)", () => {
   it("returns an array", () => {
     const results = searchMessages("the", undefined, 5);
     assert.ok(Array.isArray(results));
@@ -180,7 +192,7 @@ describe("searchMessages (integration)", () => {
   });
 });
 
-describe("getChatParticipants (integration)", () => {
+describeDbIntegration("getChatParticipants (integration)", () => {
   it("returns participants for a valid chat", () => {
     const chats = listChats(1);
     if (chats.length > 0) {
@@ -196,5 +208,24 @@ describe("getChatParticipants (integration)", () => {
   it("returns empty array for non-existent chat", () => {
     const participants = getChatParticipants("nonexistent-chat-id-12345");
     assert.deepEqual(participants, []);
+  });
+});
+
+describeDbIntegration("getChatReadState (integration)", () => {
+  it("returns read state for a valid chat", () => {
+    const chats = listChats(1);
+    if (chats.length > 0) {
+      const state = getChatReadState(chats[0].chat_id);
+      assert.equal(state.chat_id, chats[0].chat_id);
+      assert.equal(typeof state.unread_count, "number");
+      assert.ok(Array.isArray(state.participants));
+    }
+  });
+
+  it("throws for a non-existent chat", () => {
+    assert.throws(
+      () => getChatReadState("nonexistent-chat-id-12345"),
+      /Chat not found/
+    );
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { sanitize } from "../src/applescript.js";
+import { deleteThread, messagesUrlForHandle, sanitize } from "../src/applescript.js";
 
 describe("sanitize", () => {
   test("returns empty string unchanged", () => {
@@ -34,5 +34,23 @@ describe("sanitize", () => {
 
   test("leaves plain text unchanged", () => {
     expect(sanitize("Hello world 123")).toBe("Hello world 123");
+  });
+});
+
+describe("messagesUrlForHandle", () => {
+  test("percent-encodes phone numbers so plus signs are not ambiguous", () => {
+    expect(messagesUrlForHandle("+15551234567")).toBe("messages://%2B15551234567");
+  });
+
+  test("percent-encodes email handles", () => {
+    expect(messagesUrlForHandle("person+test@example.com")).toBe("messages://person%2Btest%40example.com");
+  });
+});
+
+describe("deleteThread", () => {
+  test("fails closed instead of clicking the currently focused Messages thread", async () => {
+    await expect(deleteThread("iMessage;-;+15551234567")).rejects.toThrow(
+      "delete_thread is disabled"
+    );
   });
 });

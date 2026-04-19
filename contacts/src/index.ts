@@ -9,6 +9,63 @@ import * as applescript from "./applescript.js";
 const readOnly = process.argv.includes("--read-only");
 const confirmDestructive = process.argv.includes("--confirm-destructive");
 
+type ToolResponse = {
+  content: { type: "text"; text: string }[];
+  isError?: boolean;
+};
+
+function summarizeArgs(args: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(args).map(([key, value]) => {
+      if (typeof value === "string" && ["note"].includes(key)) {
+        return [key, `<${value.length} chars>`];
+      }
+      return [key, value];
+    })
+  );
+}
+
+function serverLog(event: string, details: Record<string, unknown>): void {
+  console.error(JSON.stringify({
+    timestamp: new Date().toISOString(),
+    server: "apple-contacts",
+    event,
+    ...details,
+  }));
+}
+
+function errorResponse(err: unknown): ToolResponse {
+  return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };
+}
+
+async function withToolLogging(
+  tool: string,
+  args: Record<string, unknown>,
+  action: string,
+  handler: () => ToolResponse | Promise<ToolResponse>
+): Promise<ToolResponse> {
+  const start = Date.now();
+  serverLog("tool_call", { tool, action, args: summarizeArgs(args) });
+  try {
+    const response = await handler();
+    serverLog("tool_result", {
+      tool,
+      status: response.isError ? "error" : "ok",
+      duration_ms: Date.now() - start,
+      ...(response.isError ? { error: response.content[0]?.text } : {}),
+    });
+    return response;
+  } catch (err) {
+    serverLog("tool_result", {
+      tool,
+      status: "error",
+      duration_ms: Date.now() - start,
+      error: (err as Error).message,
+    });
+    return errorResponse(err);
+  }
+}
+
 function buildServer(): McpServer {
 const server = new McpServer({
   name: "apple-contacts",
@@ -23,12 +80,10 @@ server.registerTool(
     inputSchema: z.object({}),
   },
   async () => {
-    try {
+    return withToolLogging("list_groups", {}, "List all Apple Contacts groups", async () => {
       const groups = await applescript.listGroups();
       return { content: [{ type: "text", text: JSON.stringify(groups, null, 2) }] };
-    } catch (err) {
-      return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };
-    }
+    });
   }
 );
 
@@ -42,12 +97,10 @@ server.registerTool(
     }),
   },
   async ({ group }) => {
-    try {
+    return withToolLogging("list_contacts", { group }, group ? `List contacts in group ${group}` : "List all contacts", async () => {
       const contacts = await applescript.listContacts(group);
       return { content: [{ type: "text", text: JSON.stringify(contacts, null, 2) }] };
-    } catch (err) {
-      return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };
-    }
+    });
   }
 );
 
@@ -61,12 +114,10 @@ server.registerTool(
     }),
   },
   async ({ name }) => {
-    try {
+    return withToolLogging("get_contact", { name }, `Get contact details for ${name}`, async () => {
       const contact = await applescript.getContact(name);
       return { content: [{ type: "text", text: JSON.stringify(contact, null, 2) }] };
-    } catch (err) {
-      return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };
-    }
+    });
   }
 );
 
@@ -80,12 +131,10 @@ server.registerTool(
     }),
   },
   async ({ query }) => {
-    try {
+    return withToolLogging("search_contacts", { query }, `Search contacts for "${query}"`, async () => {
       const results = await applescript.searchContacts(query);
       return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
-    } catch (err) {
-      return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };
-    }
+    });
   }
 );
 
@@ -99,12 +148,10 @@ server.registerTool(
     }),
   },
   async ({ phone }) => {
-    try {
+    return withToolLogging("find_contact_by_phone", { phone }, `Find contacts by phone ${phone}`, async () => {
       const results = await applescript.getContactByPhone(phone);
       return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
-    } catch (err) {
-      return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };
-    }
+    });
   }
 );
 
@@ -118,12 +165,10 @@ server.registerTool(
     }),
   },
   async ({ email }) => {
-    try {
+    return withToolLogging("find_contact_by_email", { email }, `Find contacts by email ${email}`, async () => {
       const results = await applescript.getContactByEmail(email);
       return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
-    } catch (err) {
-      return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };
-    }
+    });
   }
 );
 
@@ -144,7 +189,11 @@ server.registerTool(
     }),
   },
   async ({ name, first_name, last_name, email, phone, organization, job_title, note }) => {
-    try {
+    return withToolLogging(
+      "update_contact",
+      { name, first_name, last_name, email, phone, organization, job_title, note },
+      `Update contact ${name}`,
+      async () => {
       const result = await applescript.updateContact(name, {
         firstName: first_name,
         lastName: last_name,
@@ -155,9 +204,8 @@ server.registerTool(
         note,
       });
       return { content: [{ type: "text", text: result }] };
-    } catch (err) {
-      return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };
-    }
+      }
+    );
   }
 );
 
@@ -177,7 +225,11 @@ server.registerTool(
     }),
   },
   async ({ first_name, last_name, email, phone, organization, job_title, note }) => {
-    try {
+    return withToolLogging(
+      "create_contact",
+      { first_name, last_name, email, phone, organization, job_title, note },
+      `Create contact ${first_name} ${last_name}`,
+      async () => {
       const result = await applescript.createContact(first_name, last_name, {
         email,
         phone,
@@ -186,9 +238,8 @@ server.registerTool(
         note,
       });
       return { content: [{ type: "text", text: result }] };
-    } catch (err) {
-      return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };
-    }
+      }
+    );
   }
 );
 
@@ -204,15 +255,13 @@ if (!readOnly) {
       }),
     },
     async ({ name, confirm }: { name: string; confirm?: unknown }) => {
-      if (confirmDestructive && !confirm) {
-        return { content: [{ type: "text", text: "This will permanently delete the contact. Please confirm with the user, then call again with confirm: true." }] };
-      }
-      try {
+      return withToolLogging("delete_contact", { name, confirm }, `Delete contact ${name}`, async () => {
+        if (confirmDestructive && !confirm) {
+          return { content: [{ type: "text", text: "This will permanently delete the contact. Please confirm with the user, then call again with confirm: true." }] };
+        }
         const result = await applescript.deleteContact(name);
         return { content: [{ type: "text", text: result }] };
-      } catch (err) {
-        return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };
-      }
+      });
     }
   );
 }
@@ -227,12 +276,10 @@ server.registerTool(
     }),
   },
   async ({ name }) => {
-    try {
+    return withToolLogging("create_group", { name }, `Create contact group ${name}`, async () => {
       const result = await applescript.createGroup(name);
       return { content: [{ type: "text", text: result }] };
-    } catch (err) {
-      return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };
-    }
+    });
   }
 );
 
@@ -247,12 +294,15 @@ server.registerTool(
     }),
   },
   async ({ contact_name, group_name }) => {
-    try {
+    return withToolLogging(
+      "add_contact_to_group",
+      { contact_name, group_name },
+      `Add contact ${contact_name} to group ${group_name}`,
+      async () => {
       const result = await applescript.addContactToGroup(contact_name, group_name);
       return { content: [{ type: "text", text: result }] };
-    } catch (err) {
-      return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };
-    }
+      }
+    );
   }
 );
 
@@ -267,12 +317,15 @@ server.registerTool(
     }),
   },
   async ({ contact_name, group_name }) => {
-    try {
+    return withToolLogging(
+      "remove_contact_from_group",
+      { contact_name, group_name },
+      `Remove contact ${contact_name} from group ${group_name}`,
+      async () => {
       const result = await applescript.removeContactFromGroup(contact_name, group_name);
       return { content: [{ type: "text", text: result }] };
-    } catch (err) {
-      return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };
-    }
+      }
+    );
   }
 );
 
@@ -288,15 +341,13 @@ if (!readOnly) {
       }),
     },
     async ({ name, confirm }: { name: string; confirm?: unknown }) => {
-      if (confirmDestructive && !confirm) {
-        return { content: [{ type: "text", text: "This will permanently delete the contact group. Please confirm with the user, then call again with confirm: true." }] };
-      }
-      try {
+      return withToolLogging("delete_group", { name, confirm }, `Delete contact group ${name}`, async () => {
+        if (confirmDestructive && !confirm) {
+          return { content: [{ type: "text", text: "This will permanently delete the contact group. Please confirm with the user, then call again with confirm: true." }] };
+        }
         const result = await applescript.deleteGroup(name);
         return { content: [{ type: "text", text: result }] };
-      } catch (err) {
-        return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };
-      }
+      });
     }
   );
 }

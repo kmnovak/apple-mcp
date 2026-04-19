@@ -307,6 +307,129 @@ export interface Participant {
   service: string | null;
 }
 
+export interface ChatReadState {
+  rowid: number;
+  chat_id: string;
+  guid: string | null;
+  display_name: string | null;
+  service_name: string | null;
+  participants: Participant[];
+  unread_count: number;
+}
+
+type ChatRow = {
+  rowid: number;
+  chat_id: string;
+  guid: string | null;
+  display_name: string | null;
+  service_name: string | null;
+};
+
+function unique(values: string[]): string[] {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function chatIdentifierCandidates(chatId: string): string[] {
+  const handle = chatId.includes(";") ? chatId.split(";").pop()! : chatId;
+  return unique([
+    chatId,
+    handle,
+    `SMS;-;${handle}`,
+    `iMessage;-;${handle}`,
+    `RCS;-;${handle}`,
+    `any;-;${handle}`,
+  ]);
+}
+
+function getParticipantsByChatRowId(db: DatabaseSync, rowid: number): Participant[] {
+  const rows = db.prepare(`
+    SELECT
+      h.id as handle_id,
+      h.service
+    FROM handle h
+    JOIN chat_handle_join chj ON chj.handle_id = h.ROWID
+    WHERE chj.chat_id = ?
+    ORDER BY h.id
+  `).all(rowid) as Array<{
+    handle_id: string;
+    service: string | null;
+  }>;
+
+  return rows;
+}
+
+function findChatRow(db: DatabaseSync, chatId: string): ChatRow | null {
+  const exactQuery = db.prepare(`
+    SELECT
+      c.ROWID as rowid,
+      c.chat_identifier as chat_id,
+      c.guid,
+      c.display_name,
+      c.service_name
+    FROM chat c
+    WHERE c.chat_identifier = ?
+    LIMIT 1
+  `);
+
+  for (const candidate of chatIdentifierCandidates(chatId)) {
+    const row = exactQuery.get(candidate) as ChatRow | undefined;
+    if (row) return row;
+  }
+
+  const handle = chatId.includes(";") ? chatId.split(";").pop()! : chatId;
+  const rows = db.prepare(`
+    SELECT DISTINCT
+      c.ROWID as rowid,
+      c.chat_identifier as chat_id,
+      c.guid,
+      c.display_name,
+      c.service_name
+    FROM chat c
+    JOIN chat_handle_join chj ON chj.chat_id = c.ROWID
+    JOIN handle h ON h.ROWID = chj.handle_id
+    WHERE h.id = ?
+    ORDER BY c.ROWID DESC
+    LIMIT 2
+  `).all(handle) as ChatRow[];
+
+  if (rows.length > 1) {
+    throw new Error(`Ambiguous chat identifier: ${chatId} matched multiple chats by participant handle. Use the exact chat_id from list_chats.`);
+  }
+
+  return rows[0] ?? null;
+}
+
+function getUnreadCountByChatRowId(db: DatabaseSync, rowid: number): number {
+  const row = db.prepare(`
+    SELECT COUNT(*) as cnt
+    FROM message m
+    JOIN chat_message_join cmj ON cmj.message_id = m.ROWID
+    WHERE cmj.chat_id = ?
+      AND m.is_from_me = 0
+      AND m.is_read = 0
+  `).get(rowid) as { cnt: number };
+
+  return row.cnt;
+}
+
+export function getChatReadState(chatId: string): ChatReadState {
+  const db = openDb();
+  try {
+    const chat = findChatRow(db, chatId);
+    if (!chat) {
+      throw new Error(`Chat not found: ${chatId}`);
+    }
+
+    return {
+      ...chat,
+      participants: getParticipantsByChatRowId(db, chat.rowid),
+      unread_count: getUnreadCountByChatRowId(db, chat.rowid),
+    };
+  } finally {
+    db.close();
+  }
+}
+
 /**
  * Get participants of a chat.
  */
