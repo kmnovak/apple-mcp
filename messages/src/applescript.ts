@@ -14,6 +14,10 @@ export function sanitize(input: string): string {
     .replace(/\n/g, "\\n");
 }
 
+export function messagesUrlForHandle(handle: string): string {
+  return `messages://${encodeURIComponent(handle)}`;
+}
+
 /**
  * Execute an AppleScript string via osascript and return stdout.
  */
@@ -97,6 +101,7 @@ function findChatScript(safeChatId: string, safeHandle: string): string {
 export async function markChatAsRead(chatId: string): Promise<string> {
   const handle = chatId.includes(";") ? chatId.split(";").pop()! : chatId;
   const safeHandle = sanitize(handle);
+  const safeUrl = sanitize(messagesUrlForHandle(handle));
   // Open the chat via the messages:// URL scheme. This focuses the conversation
   // in the Messages app, which causes imagent to mark all messages as read —
   // the same action that happens when a user clicks on a chat.
@@ -104,42 +109,24 @@ export async function markChatAsRead(chatId: string): Promise<string> {
   // command, and direct SQLite writes are reverted by IMDPersistenceAgent's WAL locks.
   const script = `
 tell application "Messages" to activate
-open location "messages://${safeHandle}"
+open location "${safeUrl}"
 return "Opened chat for ${safeHandle} in Messages to mark it as read"`;
   return runAppleScript(script);
 }
 
 /**
- * Delete a Messages thread via UI automation.
+ * Refuse to delete a Messages thread.
  *
- * The Messages AppleScript sdef `delete` verb fails with -10000 (AppleEvent handler
- * failed) for chat objects. The only working approach is UI automation:
- * 1. Open the chat via the messages:// URL scheme to bring it into focus.
- * 2. Click "Delete Conversation…" from the Conversation menu.
- * 3. Confirm the sheet dialog by clicking the "Delete" button.
- *
- * Requires Accessibility permission for the process invoking osascript
- * (Claude.app must be listed in System Settings → Privacy & Security → Accessibility).
- *
- * @param chatId - chat identifier (e.g. iMessage;-;+1234567890 or +1234567890)
- * @returns confirmation string
+ * Messages does not expose a reliable AppleScript delete command for chat
+ * objects, and the UI automation fallback can only click the globally focused
+ * conversation. If opening the target URL fails, races, or focuses a different
+ * thread, the fallback can delete unrelated conversations.
  */
 export async function deleteThread(chatId: string): Promise<string> {
   const handle = chatId.includes(";") ? chatId.split(";").pop()! : chatId;
-  const safeHandle = sanitize(handle);
-  const script = `
-tell application "Messages" to activate
-open location "messages://${safeHandle}"
-delay 1
-tell application "System Events"
-  tell process "Messages"
-    click menu item "Delete Conversation…" of menu "Conversation" of menu bar 1
-    delay 0.5
-    click button "Delete" of first sheet of front window
-  end tell
-end tell
-return "Deleted conversation for ${safeHandle}"`;
-  return runAppleScript(script);
+  throw new Error(
+    `delete_thread is disabled because Messages UI automation cannot verify that "${handle}" is the focused conversation before deleting.`
+  );
 }
 
 /**

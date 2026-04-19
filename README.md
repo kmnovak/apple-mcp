@@ -253,6 +253,8 @@ An MCP server that reads messages from the macOS Messages database (SQLite) and 
 | `search_messages` | Search messages by text content |
 | `send_message` | Send an iMessage or SMS |
 | `get_chat_participants` | Get participants of a chat |
+| `mark_thread_as_read` | Open a thread in Messages and verify its unread count reaches zero |
+| `delete_thread` | Disabled safety guard; Messages does not expose a reliable verified delete API |
 
 ### Permissions
 
