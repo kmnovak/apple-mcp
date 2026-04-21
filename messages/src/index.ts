@@ -200,32 +200,6 @@ function buildServer(): McpServer {
     }
   );
 
-  // ---- delete_thread ----
-  server.registerTool(
-    "delete_thread",
-    {
-      description: "Delete a Messages thread. Requires confirm: true to proceed.",
-      inputSchema: z.object({
-        chat_id: z.string().describe("Chat identifier (e.g. iMessage;-;+1234567890)"),
-        confirm: z.boolean().optional().describe("Must be true to confirm deletion"),
-      }),
-    },
-    async ({ chat_id, confirm }) => {
-      if (confirm !== true) {
-        return {
-          content: [{ type: "text", text: "Deletion requires confirm: true. This action is irreversible." }],
-          isError: true,
-        };
-      }
-      try {
-        const result = await applescript.deleteThread(chat_id);
-        return { content: [{ type: "text", text: result }] };
-      } catch (err) {
-        return { content: [{ type: "text", text: `Error: ${(err as Error).message}` }], isError: true };
-      }
-    }
-  );
-
   return server;
 }
 
